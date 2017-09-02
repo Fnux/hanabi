@@ -32,6 +32,7 @@ defmodule Hanabi.IRC.Handler do
     case msg.command do
       "NICK" -> User.set_nick(user, msg.middle)
       "USER" -> User.register(:irc, user, msg)
+      "QUIT" -> User.quit(user, msg)
       "PING" -> pong(user, msg)
       "JOIN" -> Channel.join(user, msg)
       "NAMES" -> Channel.send_names(user, msg)

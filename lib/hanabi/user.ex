@@ -102,8 +102,9 @@ defmodule Hanabi.User do
   end
 
   @doc """
-  Remove an user from the registry given its identifier.
+  Remove an user from the registry given its struct or identifier.
   """
+  def destroy(%User{}=user), do: Registry.drop @table, user.key
   def destroy(key), do: Registry.drop @table, key
 
   ###
@@ -321,20 +322,30 @@ defmodule Hanabi.User do
     end
   end
 
-#  def quit(user_id, part_message) do
-#    {:ok, user} = User.get(user_id)
-#
-#    # Broadcast part message
-#    User.broadcast(user, part_message)
-#
-#    Enum.each user.channels, fn(channel) ->
-#      part_channel(user, channel, part_message)
-#    end
-#
-#    # Destroy user
-#    User.drop(user_id)
-#
-#    # Close connection.
-#    :gen_tcp.close(user.port)
-#  end
+  @doc """
+  Remove an user from the server.
+
+    * `user` is either the user's struct or identifier
+    * `part_msg` is a string if specified
+  """
+  def quit(user, part_msg \\ nil)
+  def quit(%User{}=user, %Message{}=msg) do
+    quit user, msg.trailing
+  end
+
+  def quit(%User{}=user, part_msg) do
+    Enum.each user.channels, fn(channel) ->
+      Channel.remove_user(user, channel, part_msg)
+    end
+
+    # Destroy user
+    User.destroy(user)
+
+    # Close connection.
+    if (user.type == :irc) && Port.info(user.port) do
+      Port.close(user.port)
+    end
+  end
+  def quit(nil, _), do: :err
+  def quit(user, part_msg), do: quit User.get(user), part_msg
 end

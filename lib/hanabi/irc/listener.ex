@@ -31,13 +31,7 @@ defmodule Hanabi.IRC.Listener do
 
   def terminate(reason, client) do
     unless reason == :normal, do: Logger.warn "Terminating listener : #{reason}"
-    # close session <- should be OK
-
-    # Notify chans
-    # @TODO
-
-    # Remove from registry
-    User.destroy(client)
+    User.quit(client, "Connection closed by client")
   end
 
   ###
