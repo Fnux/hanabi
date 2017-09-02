@@ -7,7 +7,31 @@ defmodule Hanabi.User do
   @hostname Application.get_env(:hanabi, :hostname)
   @motd_file Application.get_env(:hanabi, :motd)
   @moduledoc """
-  @TODO
+  Entry point to interact with users. This module define a structure
+  to represent them :
+
+  ```
+  %Hanabi.User{
+    channels: [],
+    hostname: nil,
+    key: nil,
+    nick: nil,
+    pid: nil,
+    port: nil,
+    realname: nil,
+    type: :irc,
+    username: nil
+  }
+  ```
+
+  *Hanabi* maintains a registry storing every connected user. Depending of the
+  type of the user (`:irc` or `:virtual`), their identifier may differ :
+    * `:irc` : the user is directly connected via IRC, its key is the port
+  identifier of its TCP session
+    * `:virtual` : 'virtual' user defined by the system, the key @TODO
+
+  The registry can be accessed using the `get/1`, `get_all/0`, `update/2`,
+  `set/2` and `destroy/1` methods.
   """
 
   defstruct key: nil,
@@ -23,10 +47,23 @@ defmodule Hanabi.User do
   ####
   # Registry access
 
+  @doc """
+  Returns the user structure registered under the identifier `key`.
+
+  If no such identifier is found in the registry, returns `nil`.
+  """
   def get(key), do: Registry.get @table, key
 
+  @doc """
+  Returns a list containing all the pairs `{key, user_struct}`.
+  """
   def get_all(), do: Registry.dump(@table)
 
+  @doc """
+  Find the first user matching the pair field/value
+  (e.g. `get_by(:nick, "fnux")`). Be careful with this method since it can be
+  highly inefficient for a large set of users.
+  """
   def get_by(field, value) do
     result = Enum.find(get_all(), fn([{_,user}]) -> Map.get(user, field) == value end)
     if result do
@@ -37,6 +74,13 @@ defmodule Hanabi.User do
     end
   end
 
+  @doc """
+  Update values of an existing user struct stored in the registry.
+
+    * `user` is either the user's identifier (= key) or struct.
+    * `value` is a struct changeset, something like `nick: "fnux` or `%{nick:
+    "lambda", realname: "Lamb Da", ...}`
+  """
   def update(%User{}=user, value) do
     updated = struct(user, value)
     if Registry.set(@table, user.key, updated), do: updated, else: nil
@@ -46,17 +90,30 @@ defmodule Hanabi.User do
     if user, do: update(user, value), else: nil
   end
 
-  def set(key, value) do
-    case Registry.set(@table, key, value) do
-      true -> value
+  @doc """
+  Save the `user` struct in the registry under the `key` identifier. Any
+  existing value will be overwritten.
+  """
+  def set(key, %User{}=user) do
+    case Registry.set(@table, key, user) do
+      true -> user
       _ -> nil
     end
   end
 
+  @doc """
+  Remove an user from the registry given its identifier.
+  """
   def destroy(key), do: Registry.drop @table, key
 
   ###
 
+  @doc """
+  Sends one or multiple messages to the given user.
+
+    * `user` is either the user's identifier or its struct
+    * `msg` is either a single message struct or a list of them
+  """
   def send(%User{}, []), do: :noop
   def send(%User{}=user, [%Message{}=msg|tail]) do
     User.send user, msg
@@ -73,21 +130,57 @@ defmodule Hanabi.User do
     if user, do: User.send(user, msg), else: :err
   end
 
+  @doc """
+  Sends a message to the user and to any channel containeg the user.
+    * `user` is either the user's identifier or its struct
+    * `msg` is a single message struct
+  """
   def broadcast(%User{}=user, %Message{}=msg) do
     User.send user, msg
     for channel <- user.channels do
       Channel.broadcast(channel, msg)
     end
   end
+  def broadcast(key, %Message{}=msg) do
+    user = User.get(key)
+    broadcast(user, msg)
+  end
 
   ###
   # Utils
 
+  @doc """
+  Generate an user's identity given its struct.
+
+  ## Example
+
+  ```
+  iex> user = %Hanabi.User{channels: [], hostname: 'localhost', key: #Port<0.8947>,
+    nick: "fnux", pid: nil, port: #Port<0.8947>, realname: "realname", type: :irc,
+    username: "fnux"}
+  iex> Hanabi.User.ident_for user
+  "fnux!~fnux@localhost"
+  ```
+  """
   def ident_for(%User{}=user) do
     username = String.slice(user.username, 0..7)
     "#{user.nick}!~#{username}@#{user.hostname}"
   end
 
+  @doc """
+  Check if there is an user which has the value `value` in the  field `field`.
+
+  Be careful, this method may be highly innificient with large sets.
+
+  ## Example
+
+  ```
+  iex> Hanabi.User.is_in_use(:nick, "nonexisting")
+  false
+  iex> Hanabi.User.is_in_use(:nick, "existing")
+  true
+  ```
+  """
   def is_in_use?(field, value) do
     case get_by(field, value) do
       {:ok, _} -> true
@@ -98,7 +191,7 @@ defmodule Hanabi.User do
   ###
   # Specific actions
 
-  def set_nick(user, nick) do
+  def set_nick(%User{}=user, nick) do
     case IRC.validate(:nick, nick) do
       @err_erroneusnickname ->
         err = %Message{
@@ -130,7 +223,7 @@ defmodule Hanabi.User do
     end
   end
 
-  def register(:irc, user, %Message{}=msg) do
+  def register(:irc, %User{}=user, %Message{}=msg) do
     regex = ~r/^(\w*)\s(\w*)\s(\S*)$/ui
     if String.match?(msg.middle, regex) && msg.trailing do
       [_, username, _hostname, _servername]

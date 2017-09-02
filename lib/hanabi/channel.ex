@@ -6,7 +6,21 @@ defmodule Hanabi.Channel do
   @hostname Application.get_env(:hanabi, :hostname)
   @table :hanabi_channels # ETS table, see Hanabi.Registry
   @moduledoc """
-  @TODO
+  Entry point to interact with channels. This module define a structure to
+  represent them :
+
+  ```
+  %Hanabi.Channel{
+    name: nil,
+    relay_to: [:irc, :virtual],
+    topic: "",
+    users: []
+  }
+  ```
+
+  *Hanabi* maintains a registry storing all existing channels and using their
+  names (e.g. : `#hanabi`) as keys. This registry can be accessed using the
+  `get/1`, `get_all/0`, `update/2`, `set/2` and `drop/1` methods.
   """
 
   defstruct name: nil, users: [], topic: "", relay_to: [:irc, :virtual]
@@ -14,10 +28,25 @@ defmodule Hanabi.Channel do
   ####
   # Registry access
 
+  @doc """
+  Returns the channel structure registered under the identifier `key`.
+
+  If no such identifier is found in the registry, returns `nil`.
+  """
   def get(key), do: Registry.get @table, key
 
+  @doc """
+  Returns a list containing all the pairs `{key, channel_struct}`.
+  """
   def get_all(), do: Registry.dump @table
 
+  @doc """
+  Update the values of an existing user struct stored in the registry.
+
+    * `channel` is either the channel's identifier or struct.
+    * `value` is a struct changeset, (`topic: "my topic"`, `%{topic:
+    "my topic", users: [], ...}`)
+  """
   def update(%Channel{}=channel, change) do
     updated = struct(channel, change)
     if Registry.set(@table, channel.name, updated), do: updated, else: nil
@@ -27,12 +56,24 @@ defmodule Hanabi.Channel do
     if channel, do: update(channel, change), else: nil
   end
 
-  def set(key, value), do: Registry.set @table, key, value
+  @doc """
+  Save the `channel` struct in the registry under the given identifier. Any
+  existing value will be overwritten.
+  """
+  def set(key, %Channel{}=channel), do: Registry.set @table, key, channel
 
+  @doc """
+  Remove a channel from the registry given its identifier.
+  """
   def drop(key), do: Registry.drop @table, key
 
   ###
 
+  @doc """
+  Send the message `msg` to every user in the channel `channel`.
+
+  Both `channel` and `msg` are represented by their respective struct.
+  """
   def broadcast(%Channel{}=channel, %Message{}=msg) do
     for user <- channel.users do
       User.send user, msg
