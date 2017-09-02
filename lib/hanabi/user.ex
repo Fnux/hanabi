@@ -25,10 +25,11 @@ defmodule Hanabi.User do
   ```
 
   *Hanabi* maintains a registry storing every connected user. Depending of the
-  type of the user (`:irc` or `:virtual`), their identifier may differ :
+  type of the user (`:irc` or `:virtual`), their identifier may differ.
     * `:irc` : the user is directly connected via IRC, its key is the port
   identifier of its TCP session
-    * `:virtual` : 'virtual' user defined by the system, the key @TODO
+    * `:virtual` : 'virtual' user defined by the system, the key is mannualy set.
+    * `:void` : does not receive messages, the key is mannualy set.
 
   The registry can be accessed using the `get/1`, `get_all/0`, `update/2`,
   `set/2` and `destroy/1` methods.
@@ -75,11 +76,11 @@ defmodule Hanabi.User do
   end
 
   @doc """
-  Update values of an existing user struct stored in the registry.
+  Update the values of an existing user struct stored in the registry.
 
-    * `user` is either the user's identifier (= key) or struct.
-    * `value` is a struct changeset, something like `nick: "fnux` or `%{nick:
-    "lambda", realname: "Lamb Da", ...}`
+    * `user` is either the user's identifier or struct.
+    * `value` is a struct changeset, (`nick: "fnux"`, `%{nick:
+    "lambda", realname: "Lamb Da", ...}`)
   """
   def update(%User{}=user, value) do
     updated = struct(user, value)
@@ -91,7 +92,7 @@ defmodule Hanabi.User do
   end
 
   @doc """
-  Save the `user` struct in the registry under the `key` identifier. Any
+  Save the `user` struct in the registry under the given identifier. Any
   existing value will be overwritten.
   """
   def set(key, %User{}=user) do
@@ -124,6 +125,7 @@ defmodule Hanabi.User do
     case user.type do
       :irc -> IRC.send(user.port, msg)
       :virtual -> Kernel.send(user.pid, msg)
+      :void -> :noop
     end
   end
   def send(userkey, %Message{}=msg) do
@@ -192,6 +194,11 @@ defmodule Hanabi.User do
   ###
   # Specific actions
 
+  @doc """
+  Changes the nick of the given user (identifier or struct).
+
+  Returns `:ok` if everything went fine and `:err` if something went wrong.
+  """
   def set_nick(%User{}=user, nick) do
     case IRC.validate(:nick, nick) do
       @err_erroneusnickname ->
@@ -202,6 +209,7 @@ defmodule Hanabi.User do
           trailing: "Erroneus nickname"
         }
         User.send user, err
+        :err
       @err_nicknameinuse ->
         err = %Message{
           prefix: @hostname,
@@ -210,6 +218,7 @@ defmodule Hanabi.User do
           trailing: "Nickname is already in use"
         }
         User.send user, err
+        :err
       :ok ->
         User.update(user, nick: nick)
 
@@ -221,9 +230,14 @@ defmodule Hanabi.User do
 
         # Only if the user already have a nickname
         if user.nick, do: User.broadcast user, rpl
+
+        :ok
     end
   end
+  def set_nick(nil, _), do: :err
+  def set_nick(user, nick), do: set_nick(User.get(user), nick)
 
+  @doc false
   def register(:irc, %User{}=user, %Message{}=msg) do
     regex = ~r/^(\w*)\s(\w*)\s(\S*)$/ui
     if String.match?(msg.middle, regex) && msg.trailing do
@@ -233,7 +247,11 @@ defmodule Hanabi.User do
       realname = msg.trailing
       hostname = IRC.resolve_hostname(user.port)
 
-      register :irc, user, username, hostname, realname
+      user = struct user, %{
+        username: username, realname: realname, hostname: hostname
+      }
+
+      register(user)
     else
       err = %Message{
         prefix: @hostname,
@@ -244,22 +262,35 @@ defmodule Hanabi.User do
       User.send user, err
     end
   end
-  def register(:irc, user, username, hostname, realname) do
-    unless is_in_use?(:username, username) do
-      User.update(user, %{username: username,
-        realname: realname,
-        hostname: hostname})
-      else
-      err = %Message{
-        prefix: @hostname,
-        command: @err_alreadyregistered,
-        middle: user.nick,
-        trailing: "You may not reregister"
-      }
-      User.send user, err
+
+  @doc """
+  Register an user given its struct.
+
+  Returns either `{:ok, identifier}` or `{:error, reason}`.
+  """
+  def register(%User{}=user) do
+    cond do
+      !IRC.validate(:user, user) -> {:err, "need more params"}
+      is_in_use?(:nick, user.nick) -> {:err, "nickname in use"}
+      is_in_use?(:username, user.username) -> {:err, "username in use"}
+      !(Kernel.is_port(user.port) || Kernel.is_pid(user.pid)) ->
+        {:err, "no valid port/pid"}
+      true ->
+        User.set user.key, user
+        {:ok, user.key}
     end
   end
 
+  @doc """
+  Convenience function to register an user.
+  """
+  def register(type, key, pid, nick, username, realname, hostname) do
+    user = struct User, %{type: type, key: key, pid: pid, nick: nick, username: username,
+      realname: realname, hostname: hostname}
+    register user
+  end
+
+  @doc false
   def send_privmsg(%User{}=sender, %Message{}=msg) do
     recipient_nick = msg.middle
     recipient = User.get_by(:nick, recipient_nick)
@@ -283,6 +314,9 @@ defmodule Hanabi.User do
     end
   end
 
+  @doc """
+  Send the MOTD to the given user (identifier or struct).
+  """
   def send_motd(%User{}=user) do
     if File.exists?(@motd_file) do
       lines = File.stream!(@motd_file) |> Stream.map(&String.trim/1)
@@ -321,6 +355,8 @@ defmodule Hanabi.User do
       }
     end
   end
+  def send_motd(nil), do: :err
+  def send_motd(user), do: send_motd(User.get(user))
 
   @doc """
   Remove an user from the server.

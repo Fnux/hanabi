@@ -246,10 +246,10 @@ defmodule Hanabi.Channel do
       {:err, @err_nosuchchannel, "No such channel"}
     end
   end
+  def remove_user(nil, _, _), do: {:err, nil, "No such user"}
   def remove_user(user, channel_name, part_msg) do
     remove_user(User.get(user), channel_name, part_msg)
   end
-  def remove_user(nil, _, _), do: {:err, nil, "No such user"}
 
   @doc false
   def send_privmsg(%User{}=sender, %Message{}=msg) do
