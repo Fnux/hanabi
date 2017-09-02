@@ -83,6 +83,7 @@ defmodule Hanabi.Channel do
   ###
   # Specific actions
 
+  @doc false
   def join(%User{}=user, %Message{}=msg) do
     channel_name = msg.middle
     if IRC.validate(:channel, channel_name) == :ok do
@@ -113,6 +114,8 @@ defmodule Hanabi.Channel do
     end
   end
 
+  # Get a string constitued of nicknames (separated by spaces) from a list of
+  # user identifiers.
   defp get_names(userkeys, names \\ nil)
   defp get_names([], names), do: names
   defp get_names([userkey|tail], names) do
@@ -121,11 +124,13 @@ defmodule Hanabi.Channel do
     get_names tail, concatenated
   end
 
+  @doc false
   def send_names(%User{}=user, %Message{}=msg) do
     channel = Channel.get(msg.middle)
     send_names(user, channel)
   end
 
+  @doc false
   def send_names(%User{}=user, %Channel{}=channel) do
       names = get_names(channel.users)
       rpl_namreply = %Message{
@@ -145,6 +150,16 @@ defmodule Hanabi.Channel do
       User.send user, [rpl_namreply, rpl_endofnames]
   end
 
+  @doc """
+   Add an user to a channel.
+
+    * `user` is either the user's struct or identifier
+    * `channel` is either the channel's struct or identifier
+
+  If the user is indeed added to the channel, an updated struct (of the channel)
+  is returned. If there's something wrong (unable to find matching items in
+  the registries), `err` is returned.
+  """
   def add_user(%User{}=user, %Channel{}=channel) do
     channel = Channel.update channel, users: channel.users ++ [user.key]
     User.update user, channels: user.channels ++ [channel.name]
@@ -159,6 +174,13 @@ defmodule Hanabi.Channel do
     channel
   end
 
+  def add_user(nil, _), do: :err
+  def add_user(_, nil), do: :err
+  def add_user(u, %Channel{}=c), do: add_user(User.get(u), c)
+  def add_user(%User{}=u, c), do: add_user(u, Channel.get(c))
+  def add_user(u, c), do: add_user(User.get(u), Channel.get(c))
+
+  @doc false
   def part(%User{}=user, %Message{}=msg) do
     if String.match?(msg.middle, ~r/^(#\w*(,#\w*)?)*$/ui) do
       channel_names = String.split(msg.middle, ",")
@@ -187,11 +209,21 @@ defmodule Hanabi.Channel do
     end
   end
 
+  @doc """
+  Remove an user from a channel.
+
+    * `user` is either the user's struct or identifier
+    * `channel` is either the channel's struct or identifier
+    * `part_msg` is a string if specified
+
+    Returns `{:ok, updated_user_struct, updated_channel_struct}` if the user
+    is removed and `{:err, code, reason}` otherwise.
+  """
   def remove_user(user, channel, part_msg \\ nil)
   def remove_user(%User{}=user, %Channel{}=channel, part_msg) do
     if (user.key in channel.users) do
-      Channel.update channel, users: List.delete(channel.users, user.key)
-      User.update user, channels: List.delete(user.channels, channel.name)
+      channel = Channel.update channel, users: List.delete(channel.users, user.key)
+      user = User.update user, channels: List.delete(user.channels, channel.name)
 
       Channel.broadcast channel, %Message{
         prefix: User.ident_for(user),
@@ -201,12 +233,11 @@ defmodule Hanabi.Channel do
       }
 
       # Returns
-      :ok
+      {:ok, user, channel}
     else
       {:err, @err_notonchannel, "You're not on that channel"}
     end
   end
-
   def remove_user(%User{}=user, channel_name, part_msg) do
     channel = Channel.get(channel_name)
     if channel do
@@ -215,7 +246,12 @@ defmodule Hanabi.Channel do
       {:err, @err_nosuchchannel, "No such channel"}
     end
   end
+  def remove_user(user, channel_name, part_msg) do
+    remove_user(User.get(user), channel_name, part_msg)
+  end
+  def remove_user(nil, _, _), do: {:err, nil, "No such user"}
 
+  @doc false
   def send_privmsg(%User{}=sender, %Message{}=msg) do
     channel_name = msg.middle
     channel = Channel.get channel_name
@@ -242,15 +278,41 @@ defmodule Hanabi.Channel do
     end
   end
 
+  @doc """
+  Set the topic of a channel.
+
+  * `channel` is either a channel's struct or identifier
+  * `topic` is a string
+
+  Returns `:ok` or `:err`.
+  """
+  def set_topic(%Channel{}=channel, topic) do
+    if Kernel.is_binary(topic) do
+      channel = Channel.update channel, topic: topic
+
+      rpl_topic = %Message{
+        prefix: @hostname,
+        command: "TOPIC",
+        middle: "#{channel.name}",
+        trailing: channel.topic
+      }
+      IO.inspect rpl_topic
+      Channel.broadcast channel, rpl_topic
+      :ok
+    else
+      :err
+    end
+  end
+  def set_topic(nil, _), do: :err
   def set_topic(%User{}=user, %Message{}=msg) do
     channel_name = msg.middle
     channel = Channel.get channel_name
 
     if (channel && user.key in channel.users) do
-      channel = Channel.update channel, topic: channel = msg.trailing
+      channel = Channel.update channel, topic: msg.trailing
       rpl_topic = %Message{
         prefix: @hostname,
-        command: @rpl_topic,
+        command: "TOPIC",
         middle: "#{user.nick} #{channel.name}",
         trailing: channel.topic
       }
@@ -265,4 +327,5 @@ defmodule Hanabi.Channel do
       User.send user, err
     end
   end
+  def set_topic(channel, topic), do: set_topic Channel.get(channel), topic
 end
