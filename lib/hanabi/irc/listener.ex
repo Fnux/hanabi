@@ -55,6 +55,7 @@ defmodule Hanabi.IRC.Listener do
     msg = IRC.parse(data)
 
     case msg.command do
+      "CAP" -> :not_implemented # client capability negotiation extension, IRCv3.x
       "PASS" -> :not_implemented # ignored
       "NICK" -> GenServer.call(@handler, {client, msg})
       "USER" -> GenServer.call(@handler, {client, msg})

@@ -39,6 +39,8 @@ defmodule Hanabi.IRC.Handler do
       "PART" -> Channel.part(user, msg)
       "PRIVMSG" -> privmsg(user, msg)
       "TOPIC" -> Channel.set_topic(user, msg)
+      "MODE" -> :not_implemented # @TODO
+      "WHO" -> :not_implemented # @TODO
       _ -> Logger.warn "Unknown command : #{msg.command}"
     end
   end
