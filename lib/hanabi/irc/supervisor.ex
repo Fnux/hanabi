@@ -1,6 +1,8 @@
 defmodule Hanabi.IRC.Supervisor do
   use Supervisor
 
+  @moduledoc false
+
   def start_link() do
     Supervisor.start_link(__MODULE__, [], name: __MODULE__)
   end

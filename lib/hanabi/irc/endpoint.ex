@@ -2,6 +2,8 @@ defmodule Hanabi.IRC.Endpoint do
   alias Hanabi.IRC
   require Logger
 
+  @moduledoc false
+
   # Start TCP socket
   def accept(port \\ 6667) do
     case :gen_tcp.listen(port, [:binary, packet: :line, active: false, reuseaddr: true]) do

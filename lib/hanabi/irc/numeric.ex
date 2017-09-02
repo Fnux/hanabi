@@ -1,5 +1,9 @@
 defmodule Hanabi.IRC.Numeric do
 
+  @moduledoc """
+  @TODO
+  """
+
   ####################
   # IRC Numeric Codes
   ####################
