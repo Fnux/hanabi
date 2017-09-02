@@ -1,7 +1,17 @@
 defmodule Hanabi.IRC.Numeric do
 
   @moduledoc """
-  @TODO
+  This module maps numeric replies (as defined in
+  [RFC1459, section 6](https://tools.ietf.org/html/rfc1459#section-6)) to
+  more convenient constants. (e.g. : `@rpl_topic "332"`). Please take
+  a look to the
+  [module's source code](https://github.com/Fnux/hanabi/blob/master/lib/hanabi/irc/numeric.ex)
+  for a detailed list.
+
+  **Note :** the numeric values are stored as string (they're often used in
+  the `:command` field of a `Hanabi.IRC.Message` struct).
+
+  How to use them ? Just add `use Hanabi.IRC.Numeric` at the top of your module.
   """
 
   ####################
