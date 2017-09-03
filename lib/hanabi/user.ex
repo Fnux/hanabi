@@ -4,8 +4,6 @@ defmodule Hanabi.User do
   use Hanabi.IRC.Numeric
 
   @table :hanabi_users # ETS table name, see Hanabi.Registry
-  @hostname Application.get_env(:hanabi, :hostname)
-  @motd_file Application.get_env(:hanabi, :motd)
   @moduledoc """
   Entry point to interact with users. This module define a structure
   to represent them :
@@ -24,12 +22,14 @@ defmodule Hanabi.User do
   }
   ```
 
-  *Hanabi* maintains a registry storing every connected user. Depending of the
-  type of the user (`:irc` or `:virtual`), their identifier may differ.
-    * `:irc` : the user is directly connected via IRC, its key is the port
-  identifier of its TCP session
-    * `:virtual` : 'virtual' user defined by the system, the key is mannualy set.
-    * `:void` : does not receive messages, the key is mannualy set.
+  *Hanabi* maintains a registry storing every connected user. There are three
+  different 'type' of users :
+    * `:irc` : the user is directly connected via IRC and identified by its
+  TCP session
+    * `:virtual` : 'virtual' user defined by the system, its identifier is
+  mannualy set with `add/1` ot `add/7`
+    * `:void` : same as `:virtual`, exept that no message will be transmitted
+  to those users
 
   The registry can be accessed using the `get/1`, `get_all/0`, `update/2`,
   `set/2` and `destroy/1` methods.
@@ -135,6 +135,7 @@ defmodule Hanabi.User do
 
   @doc """
   Sends a message to the user and to any channel containeg the user.
+
     * `user` is either the user's identifier or its struct
     * `msg` is a single message struct
   """
@@ -197,179 +198,86 @@ defmodule Hanabi.User do
   @doc """
   Changes the nick of the given user (identifier or struct).
 
-  Returns `:ok` if everything went fine and `:err` if something went wrong.
-  """
-  def set_nick(%User{}=user, nick) do
-    case IRC.validate(:nick, nick) do
-      @err_erroneusnickname ->
-        err = %Message{
-          prefix: @hostname,
-          command: @err_erroneusnickname,
-          middle: user.nick,
-          trailing: "Erroneus nickname"
-        }
-        User.send user, err
-        :err
-      @err_nicknameinuse ->
-        err = %Message{
-          prefix: @hostname,
-          command: @err_nicknameinuse,
-          middle: user.nick,
-          trailing: "Nickname is already in use"
-        }
-        User.send user, err
-        :err
-      :ok ->
-        User.update(user, nick: nick)
+  Return values :
+    * `{:err, @err_erroneusnickname}`
+    * `{:err, @err_nicknameinuse}`
+    * `{:err, "no such user"}`
+    * `{:ok, new_nickname}`
 
-        rpl = %Message{
+  `@err_erroneusnickname` and `@err_nicknameinuse` are defined in
+  `Hanabi.IRC.Numeric`.
+  """
+  def change_nick(%User{}=user, new_nickname) do
+    case IRC.validate(:nick, new_nickname) do
+      {:err, reason} -> {:err, reason}
+      {:ok, new_nickname} ->
+        notification = %Message{
           prefix: user.nick, # Old nick
           command: "NICK",
-          middle: nick # New nick
+          middle: new_nickname
         }
+        user = User.update(user, nick: new_nickname)
 
         # Only if the user already have a nickname
-        if user.nick, do: User.broadcast user, rpl
+        if user.nick, do: User.broadcast(user, notification)
 
-        :ok
+        {:ok, user}
     end
   end
-  def set_nick(nil, _), do: :err
-  def set_nick(user, nick), do: set_nick(User.get(user), nick)
-
-  @doc false
-  def register(:irc, %User{}=user, %Message{}=msg) do
-    regex = ~r/^(\w*)\s(\w*)\s(\S*)$/ui
-    if String.match?(msg.middle, regex) && msg.trailing do
-      [_, username, _hostname, _servername]
-      = Regex.run(regex, msg.middle)
-
-      realname = msg.trailing
-      hostname = IRC.resolve_hostname(user.port)
-
-      user = struct user, %{
-        username: username, realname: realname, hostname: hostname
-      }
-
-      register(user)
-    else
-      err = %Message{
-        prefix: @hostname,
-        command: @err_needmoreparams,
-        middle: "USER",
-        trailing: "Not enough parameters"
-      }
-      User.send user, err
-    end
+  def change_nick(nil, _), do: {:err, "no such user"}
+  def change_nick(user_key, new_nickname) do
+    change_nick(User.get(user_key), new_nickname)
   end
 
   @doc """
   Register an user given its struct.
 
-  Returns either `{:ok, identifier}` or `{:error, reason}`.
+  Return values :
+    * `{:err, @err_needmoreparams}`
+    * `{:err, @err_alreadyregistered}` : there already is an user with the
+  same username
+    * `{:err, @err_erroneusnickname}`
+    * `{:err, @err_nicknameinuse}`
+    * `{:err, "invalid port"}` : `:irc` user but `user.port` is not a port
+    * `{:err, "invalid pid"}` : `:virtual` user but `user.pid` is not a pid
+    * `{:ok, identifier}`
+
+  `@err_needmoreparams`, `@err_alreadyregistered`, `@err_erroneusnickname`
+  and `@err_nicknameinuse` are defined in `Hanabi.IRC.Numeric`
   """
-  def register(%User{}=user) do
+  def add(%User{}=user) do
     cond do
-      !IRC.validate(:user, user) -> {:err, "need more params"}
-      is_in_use?(:nick, user.nick) -> {:err, "nickname in use"}
-      is_in_use?(:username, user.username) -> {:err, "username in use"}
-      !(Kernel.is_port(user.port) || Kernel.is_pid(user.pid)) ->
-        {:err, "no valid port/pid"}
+      !IRC.validate(:user, user) -> {:err, @err_needmoreparams}
+      is_in_use?(:username, user.username) -> {:err, @err_alreadyregistered}
+      (user.type == :irc) && !Kernel.is_port(user.port) -> {:err, "invalid port"}
+      (user.type == :virtual) && !Kernel.is_pid(user.pid) -> {:err, "invalid pid"}
       true ->
-        User.set user.key, user
-        {:ok, user.key}
+        case IRC.validate(:nick, user.nick) do
+          {:err, reason} -> {:err, reason}
+          {:ok, _nick} ->
+            User.set(user.key, user)
+            {:ok, user.key}
+        end
     end
   end
 
   @doc """
   Convenience function to register an user.
   """
-  def register(type, key, pid, nick, username, realname, hostname) do
+  def add(type, key, pid, nick, username, realname, hostname) do
     user = struct User, %{type: type, key: key, pid: pid, nick: nick, username: username,
       realname: realname, hostname: hostname}
-    register user
+    add(user)
   end
-
-  @doc false
-  def send_privmsg(%User{}=sender, %Message{}=msg) do
-    recipient_nick = msg.middle
-    recipient = User.get_by(:nick, recipient_nick)
-
-    if recipient do
-      privmsg = %Message{
-        prefix: ident_for(sender),
-        command: "PRIVMSG",
-        middle: recipient_nick,
-        trailing: msg.trailing
-      }
-      User.send recipient, privmsg
-    else
-      err = %Message{
-        prefix: @hostname,
-        command: @err_nosuchnick,
-        middle: "#{sender.nick} #{recipient_nick}",
-        trailing: "No such nick/channel"
-      }
-      User.send sender, err
-    end
-  end
-
-  @doc """
-  Send the MOTD to the given user (identifier or struct).
-  """
-  def send_motd(%User{}=user) do
-    if File.exists?(@motd_file) do
-      lines = File.stream!(@motd_file) |> Stream.map(&String.trim/1)
-
-      #RPL_MOTDSTART
-      User.send user, %Message{
-        prefix: @hostname,
-        command: @rpl_motdstart,
-        middle: user.nick,
-        trailing: "- #{@hostname} Message of the day - "
-      }
-
-      #RPL_MOTD
-      for line <- lines do
-      User.send user, %Message{
-          command: @rpl_motd,
-          prefix: @hostname,
-          middle: user.nick,
-          trailing: "- " <> line
-        }
-      end
-
-      #RPL_ENDOFMOTD
-      User.send user, %Message{
-        prefix: @hostname,
-        command: @rpl_endofmotd,
-        middle: user.nick,
-        trailing: "End of /MOTD command"
-      }
-    else
-      User.send user, %Message{
-        prefix: @hostname,
-        command: @err_nomotd,
-        middle: user.nick,
-        trailing: "MOTD File is missing"
-      }
-    end
-  end
-  def send_motd(nil), do: :err
-  def send_motd(user), do: send_motd(User.get(user))
 
   @doc """
   Remove an user from the server.
 
-    * `user` is either the user's struct or identifier
-    * `part_msg` is a string if specified
+  * `user` is either the user's struct or identifier
+  * `part_msg` is a string if specified
   """
-  def quit(user, part_msg \\ nil)
-  def quit(%User{}=user, %Message{}=msg) do
-    quit user, msg.trailing
-  end
-
-  def quit(%User{}=user, part_msg) do
+  def remove(user, part_msg \\ nil)
+  def remove(%User{}=user, part_msg) do
     Enum.each user.channels, fn(channel) ->
       Channel.remove_user(user, channel, part_msg)
     end
@@ -382,6 +290,6 @@ defmodule Hanabi.User do
       Port.close(user.port)
     end
   end
-  def quit(nil, _), do: :err
-  def quit(user, part_msg), do: quit User.get(user), part_msg
+  def remove(nil, _), do: :err
+  def remove(user_key, part_msg), do: remove(User.get(user_key), part_msg)
 end

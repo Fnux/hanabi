@@ -1,5 +1,5 @@
 defmodule Hanabi.IRC.Listener do
-  alias Hanabi.{User, IRC}
+  alias Hanabi.{User, IRC, IRC.Message}
   require Logger
   use Hanabi.IRC.Numeric
   use GenServer
@@ -31,7 +31,7 @@ defmodule Hanabi.IRC.Listener do
 
   def terminate(reason, client) do
     unless reason == :normal, do: Logger.warn "Terminating listener : #{reason}"
-    User.quit(client, "Connection closed by client")
+    User.remove(client, "Connection closed by client")
   end
 
   ###
@@ -65,7 +65,12 @@ defmodule Hanabi.IRC.Listener do
     user = User.get(client) # user was most likely modified
     if IRC.validate(:user, user) do
       Logger.debug "New IRC user : #{User.ident_for(user)}"
-      User.send_motd(user)
+
+      # send MOTD
+      Kernel.send(
+        @handler, {client, %Message{command: "MOTD"}}
+      )
+
       send self(), :serve
     else
       # User has not sent through all the right messages yet.

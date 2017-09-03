@@ -1,10 +1,11 @@
 defmodule Hanabi.IRC.Handler do
-  alias Hanabi.{User, Channel}
-  alias Hanabi.IRC.Message
+  alias Hanabi.{User, Channel, IRC, IRC.Message}
   require Logger
   use GenServer
+  use Hanabi.IRC.Numeric
 
   @moduledoc false
+  @motd_file Application.get_env(:hanabi, :motd)
   @hostname Application.get_env(:hanabi, :hostname)
 
   def start_link() do
@@ -30,10 +31,11 @@ defmodule Hanabi.IRC.Handler do
   def dispatch(client, %Message{}=msg) do
     user = User.get(client)
     case msg.command do
-      "NICK" -> User.set_nick(user, msg.middle)
-      "USER" -> User.register(:irc, user, msg)
-      "QUIT" -> User.quit(user, msg)
+      "NICK" -> set_nick(user, msg.middle)
+      "USER" -> register(user, msg)
+      "QUIT" -> quit(user, msg)
       "PING" -> pong(user, msg)
+      "MOTD" -> send_motd(user)
       "JOIN" -> Channel.join(user, msg)
       "NAMES" -> Channel.send_names(user, msg)
       "PART" -> Channel.part(user, msg)
@@ -46,6 +48,97 @@ defmodule Hanabi.IRC.Handler do
   end
 
   ###
+
+  def set_nick(%User{}=user, nick) do
+    case User.change_nick(user, nick) do
+      {:err, @err_erroneusnickname} ->
+        err = %Message{
+          prefix: @hostname,
+          command: @err_erroneusnickname,
+          middle: user.nick,
+          trailing: "Erroneus nickname"
+        }
+        User.send user, err
+      {:err, @err_nicknameinuse} ->
+        err = %Message{
+          prefix: @hostname,
+          command: @err_nicknameinuse,
+          middle: user.nick,
+          trailing: "Nickname is already in use"
+        }
+        User.send user, err
+        :err
+      _ -> :noop
+    end
+  end
+
+  def quit(%User{}=user, %Message{}=msg) do
+    User.remove user, msg.trailing
+  end
+
+  def send_motd(%User{}=user) do
+    if File.exists?(@motd_file) do
+      lines = File.stream!(@motd_file) |> Stream.map(&String.trim/1)
+
+      #RPL_MOTDSTART
+      User.send user, %Message{
+        prefix: @hostname,
+        command: @rpl_motdstart,
+        middle: user.nick,
+        trailing: "- #{@hostname} Message of the day - "
+      }
+
+      #RPL_MOTD
+      for line <- lines do
+      User.send user, %Message{
+          command: @rpl_motd,
+          prefix: @hostname,
+          middle: user.nick,
+          trailing: "- " <> line
+        }
+      end
+
+      #RPL_ENDOFMOTD
+      User.send user, %Message{
+        prefix: @hostname,
+        command: @rpl_endofmotd,
+        middle: user.nick,
+        trailing: "End of /MOTD command"
+      }
+    else
+      User.send user, %Message{
+        prefix: @hostname,
+        command: @err_nomotd,
+        middle: user.nick,
+        trailing: "MOTD File is missing"
+      }
+    end
+  end
+
+  def register(%User{}=user, %Message{}=msg) do
+    regex = ~r/^(\w*)\s(\w*)\s(\S*)$/ui
+    if String.match?(msg.middle, regex) && msg.trailing do
+      [_, username, _hostname, _servername]
+      = Regex.run(regex, msg.middle)
+
+      realname = msg.trailing
+      hostname = IRC.resolve_hostname(user.port)
+
+      user = struct user, %{
+        username: username, realname: realname, hostname: hostname
+      }
+
+      User.add(user)
+    else
+      err = %Message{
+        prefix: @hostname,
+        command: @err_needmoreparams,
+        middle: "USER",
+        trailing: "Not enough parameters"
+      }
+      User.send user, err
+    end
+  end
 
   def pong(%User{}=user, %Message{}=msg) do
     rpl = %Message{
@@ -62,8 +155,31 @@ defmodule Hanabi.IRC.Handler do
       if String.match?(msg.middle, ~r/^#\S*$/ui) do
         Channel.send_privmsg user, msg
       else
-        User.send_privmsg user, msg
+        user_privmsg user, msg
       end
+    end
+  end
+
+  def user_privmsg(%User{}=sender, %Message{}=msg) do
+    recipient_nick = msg.middle
+    recipient = User.get_by(:nick, recipient_nick)
+
+    if recipient do
+      privmsg = %Message{
+        prefix: User.ident_for(sender),
+        command: "PRIVMSG",
+        middle: recipient_nick,
+        trailing: msg.trailing
+      }
+      User.send recipient, privmsg
+    else
+      err = %Message{
+        prefix: @hostname,
+        command: @err_nosuchnick,
+        middle: "#{sender.nick} #{recipient_nick}",
+        trailing: "No such nick/channel"
+      }
+      User.send sender, err
     end
   end
 end

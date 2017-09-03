@@ -137,15 +137,15 @@ defmodule Hanabi.IRC do
   `validate(:nick, nick)`
 
   Returns :
-    * `:ok` if the nickname is valid and unused
-    * `"432"` (`@err_erroneusnickname`) if the nickname is invalid
-    * `"433"` (`@err_nicknameinuse`) if the nickname is valid but already in use
+    * `{:ok, nick}` if the nickname is valid and unused
+    * `{:err, "432"}` (`@err_erroneusnickname`) if the nickname is invalid
+    * `{:err, "433"}` (`@err_nicknameinuse`) if the nickname is valid but already in use
 
   ```
   iex> Hanabi.IRC.validate :nick, "fnux"
-  :ok
+  {:ok. "fnux"}
   iex> Hanabi.IRC.validate :nick, "#fnux"
-  "432"
+  {:err, "432"}
   ```
 
   ## Channel name validation
@@ -176,9 +176,9 @@ defmodule Hanabi.IRC do
     regex = ~r/\A[a-z_\-\[\]\\^{}|`][a-z0-9_\-\[\]\\^{}|`]{2,15}\z/ui
 
     cond do
-      !String.match?(nick, regex) -> @err_erroneusnickname
-      User.is_in_use?(:nick, nick) -> @err_nicknameinuse
-      true -> :ok
+      !String.match?(nick, regex) -> {:err, @err_erroneusnickname}
+      User.is_in_use?(:nick, nick) -> {:err, @err_nicknameinuse}
+      true -> {:ok, nick}
     end
   end
 
