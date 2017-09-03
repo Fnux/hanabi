@@ -36,11 +36,11 @@ defmodule Hanabi.IRC.Handler do
       "QUIT" -> quit(user, msg)
       "PING" -> pong(user, msg)
       "MOTD" -> send_motd(user)
-      "JOIN" -> Channel.join(user, msg)
-      "NAMES" -> Channel.send_names(user, msg)
-      "PART" -> Channel.part(user, msg)
+      "JOIN" -> join(user, msg)
+      "NAMES" -> names(user, msg)
+      "PART" -> part(user, msg)
       "PRIVMSG" -> privmsg(user, msg)
-      "TOPIC" -> Channel.set_topic(user, msg)
+      "TOPIC" -> topic(user, msg)
       "MODE" -> :not_implemented # @TODO
       "WHO" -> :not_implemented # @TODO
       _ -> Logger.warn "Unknown command : #{msg.command}"
@@ -153,14 +153,14 @@ defmodule Hanabi.IRC.Handler do
   def privmsg(%User{}=user, %Message{}=msg) do
     if msg.middle do
       if String.match?(msg.middle, ~r/^#\S*$/ui) do
-        Channel.send_privmsg user, msg
+        channel_privmsg user, msg
       else
         user_privmsg user, msg
       end
     end
   end
 
-  def user_privmsg(%User{}=sender, %Message{}=msg) do
+  defp user_privmsg(%User{}=sender, %Message{}=msg) do
     recipient_nick = msg.middle
     recipient = User.get_by(:nick, recipient_nick)
 
@@ -181,5 +181,130 @@ defmodule Hanabi.IRC.Handler do
       }
       User.send sender, err
     end
+  end
+
+  defp channel_privmsg(%User{}=sender, %Message{}=msg) do
+    channel_name = msg.middle
+    channel = Channel.get channel_name
+
+    if channel do
+      privmsg = %Message{
+        prefix: User.ident_for(sender),
+        command: "PRIVMSG",
+        middle: channel_name,
+        trailing: msg.trailing
+      }
+
+      # Remove sender from receivers !
+      channel = struct(channel, users: List.delete(channel.users, sender.key))
+      Channel.broadcast channel, privmsg
+    else
+      err = %Message{
+        prefix: @hostname,
+        command: @err_nosuchnick,
+        middle: "#{sender.nick} #{channel_name}",
+        trailing: "No such nick/channel"
+      }
+      User.send sender, err
+    end
+  end
+
+  def join(%User{}=user, %Message{}=msg) do
+    channel_name = msg.middle
+    if IRC.validate(:channel, channel_name) == :ok do
+      channel = case Channel.get(channel_name) do
+        nil -> struct(Channel, name: channel_name)
+        channel -> channel
+      end
+
+      channel = Channel.add_user(user, channel)
+
+      rpl_topic = %Message{
+        prefix: @hostname,
+        command: @rpl_topic,
+        middle: "#{user.nick} #{channel.name}",
+        trailing: channel.topic
+      }
+
+      User.send user, rpl_topic
+      send_names(user, channel)
+    else
+      err = %Message{
+        prefix: @hostname,
+        command: @err_nosuchchannel,
+        middle: channel_name,
+        trailing: "No such channel"
+      }
+      User.send user, err
+    end
+  end
+
+  def part(%User{}=user, %Message{}=msg) do
+    if String.match?(msg.middle, ~r/^(#\w*(,#\w*)?)*$/ui) do
+      channel_names = String.split(msg.middle, ",")
+
+      for channel_name <- channel_names do
+        case Channel.remove_user(user, channel_name, msg.trailing) do
+          {:err, code, explanation} ->
+            err = %Message{
+              prefix: @hostname,
+              command: code,
+              middle: channel_name,
+              trailing: explanation
+            }
+            User.send user, err
+          _ -> :noop
+        end
+      end
+    else
+      err = %Message{
+        prefix: @hostname,
+        command: @err_needmoreparams,
+        middle: "PART",
+        trailing: "Not enough parameters"
+      }
+      User.send user, err
+    end
+  end
+
+  def topic(%User{}=user, %Message{}=msg) do
+    channel_name = msg.middle
+    channel = Channel.get channel_name
+
+    if (channel && user.key in channel.users) do
+      Channel.set_topic(channel, msg.trailing, user.nick)
+    else
+      err = %Message{
+        prefix: @hostname,
+        command: @err_notonchannel,
+        middle: "#{user.nick} #{channel_name}",
+        trailing: "You're not on that channel"
+      }
+      User.send user, err
+    end
+  end
+
+  def names(%User{}=user, %Message{}=msg) do
+    channel = Channel.get(msg.middle)
+    send_names(user, channel)
+  end
+
+  def send_names(%User{}=user, %Channel{}=channel) do
+      names = Channel.get_names(channel.users)
+      rpl_namreply = %Message{
+        prefix: @hostname,
+        command: @rpl_namreply,
+        middle: "#{user.nick} = #{channel.name}",
+        trailing: names
+      }
+
+      rpl_endofnames = %Message{
+        prefix: @hostname,
+        command: @rpl_endofnames,
+        middle: "#{user.nick} #{channel.name}",
+        trailing: "End of /NAMES list"
+      }
+
+      User.send user, [rpl_namreply, rpl_endofnames]
   end
 end

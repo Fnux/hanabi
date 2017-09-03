@@ -1,5 +1,5 @@
 defmodule Hanabi.Channel do
-  alias Hanabi.{User, Channel, IRC, Registry}
+  alias Hanabi.{User, Channel, Registry}
   alias Hanabi.IRC.Message
   use Hanabi.IRC.Numeric
 
@@ -83,73 +83,6 @@ defmodule Hanabi.Channel do
   ###
   # Specific actions
 
-  @doc false
-  def join(%User{}=user, %Message{}=msg) do
-    channel_name = msg.middle
-    if IRC.validate(:channel, channel_name) == :ok do
-      channel = case Channel.get(channel_name) do
-        nil -> struct(Channel, name: channel_name)
-        channel -> channel
-      end
-
-      channel = Channel.add_user(user, channel)
-
-      rpl_topic = %Message{
-        prefix: @hostname,
-        command: @rpl_topic,
-        middle: "#{user.nick} #{channel.name}",
-        trailing: channel.topic
-      }
-
-      User.send user, rpl_topic
-      send_names(user, channel)
-    else
-      err = %Message{
-        prefix: @hostname,
-        command: @err_nosuchchannel,
-        middle: channel_name,
-        trailing: "No such channel"
-      }
-      User.send user, err
-    end
-  end
-
-  # Get a string constitued of nicknames (separated by spaces) from a list of
-  # user identifiers.
-  defp get_names(userkeys, names \\ nil)
-  defp get_names([], names), do: names
-  defp get_names([userkey|tail], names) do
-    name = User.get(userkey) |> Map.get(:nick)
-    concatenated = if names, do: "#{names} #{name}", else: name
-    get_names tail, concatenated
-  end
-
-  @doc false
-  def send_names(%User{}=user, %Message{}=msg) do
-    channel = Channel.get(msg.middle)
-    send_names(user, channel)
-  end
-
-  @doc false
-  def send_names(%User{}=user, %Channel{}=channel) do
-      names = get_names(channel.users)
-      rpl_namreply = %Message{
-        prefix: @hostname,
-        command: @rpl_namreply,
-        middle: "#{user.nick} = #{channel.name}",
-        trailing: names
-      }
-
-      rpl_endofnames = %Message{
-        prefix: @hostname,
-        command: @rpl_endofnames,
-        middle: "#{user.nick} #{channel.name}",
-        trailing: "End of /NAMES list"
-      }
-
-      User.send user, [rpl_namreply, rpl_endofnames]
-  end
-
   @doc """
    Add an user to a channel.
 
@@ -180,35 +113,6 @@ defmodule Hanabi.Channel do
   def add_user(%User{}=u, c), do: add_user(u, Channel.get(c))
   def add_user(u, c), do: add_user(User.get(u), Channel.get(c))
 
-  @doc false
-  def part(%User{}=user, %Message{}=msg) do
-    if String.match?(msg.middle, ~r/^(#\w*(,#\w*)?)*$/ui) do
-      channel_names = String.split(msg.middle, ",")
-
-      for channel_name <- channel_names do
-        case Channel.remove_user(user, channel_name, msg.trailing) do
-          {:err, code, explanation} ->
-            err = %Message{
-              prefix: @hostname,
-              command: code,
-              middle: channel_name,
-              trailing: explanation
-            }
-            User.send user, err
-          _ -> :noop
-        end
-      end
-    else
-      err = %Message{
-        prefix: @hostname,
-        command: @err_needmoreparams,
-        middle: "PART",
-        trailing: "Not enough parameters"
-      }
-      User.send user, err
-    end
-  end
-
   @doc """
   Remove an user from a channel.
 
@@ -222,15 +126,15 @@ defmodule Hanabi.Channel do
   def remove_user(user, channel, part_msg \\ nil)
   def remove_user(%User{}=user, %Channel{}=channel, part_msg) do
     if (user.key in channel.users) do
-      channel = Channel.update channel, users: List.delete(channel.users, user.key)
-      user = User.update user, channels: List.delete(user.channels, channel.name)
-
       Channel.broadcast channel, %Message{
         prefix: User.ident_for(user),
         command: "PART",
         middle: channel.name,
         trailing: part_msg
       }
+
+      channel = Channel.update channel, users: List.delete(channel.users, user.key)
+      user = User.update user, channels: List.delete(user.channels, channel.name)
 
       # Returns
       {:ok, user, channel}
@@ -252,80 +156,46 @@ defmodule Hanabi.Channel do
   end
 
   @doc false
-  def send_privmsg(%User{}=sender, %Message{}=msg) do
-    channel_name = msg.middle
-    channel = Channel.get channel_name
-
-    if channel do
-      privmsg = %Message{
-        prefix: User.ident_for(sender),
-        command: "PRIVMSG",
-        middle: channel_name,
-        trailing: msg.trailing
-      }
-
-      # Remove sender from receivers !
-      channel = struct(channel, users: List.delete(channel.users, sender.key))
-      Channel.broadcast channel, privmsg
-    else
-      err = %Message{
-        prefix: @hostname,
-        command: @err_nosuchnick,
-        middle: "#{sender.nick} #{channel_name}",
-        trailing: "No such nick/channel"
-      }
-      User.send sender, err
-    end
-  end
 
   @doc """
   Set the topic of a channel.
 
   * `channel` is either a channel's struct or identifier
   * `topic` is a string
+  * `name` is the one who changed the topic. Defaults to the server's hostname
 
   Returns `:ok` or `:err`.
   """
-  def set_topic(%Channel{}=channel, topic) do
+  def set_topic(channel, topic, name \\ @hostname)
+  def set_topic(%Channel{}=channel, topic, name) do
     if Kernel.is_binary(topic) do
       channel = Channel.update channel, topic: topic
 
       rpl_topic = %Message{
-        prefix: @hostname,
+        prefix: name,
         command: "TOPIC",
         middle: "#{channel.name}",
         trailing: channel.topic
       }
-      IO.inspect rpl_topic
       Channel.broadcast channel, rpl_topic
       :ok
     else
       :err
     end
   end
-  def set_topic(nil, _), do: :err
-  def set_topic(%User{}=user, %Message{}=msg) do
-    channel_name = msg.middle
-    channel = Channel.get channel_name
-
-    if (channel && user.key in channel.users) do
-      channel = Channel.update channel, topic: msg.trailing
-      rpl_topic = %Message{
-        prefix: @hostname,
-        command: "TOPIC",
-        middle: "#{user.nick} #{channel.name}",
-        trailing: channel.topic
-      }
-      Channel.broadcast channel, rpl_topic
-    else
-      err = %Message{
-        prefix: @hostname,
-        command: @err_notonchannel,
-        middle: "#{user.nick} #{channel_name}",
-        trailing: "You're not on that channel"
-      }
-      User.send user, err
-    end
+  def set_topic(nil, _, _), do: :err
+  def set_topic(channel, topic, name) do
+    set_topic Channel.get(channel), topic, name
   end
-  def set_topic(channel, topic), do: set_topic Channel.get(channel), topic
+
+  # Get a string constitued of nicknames (separated by spaces) from a list of
+  # user identifiers.
+  @doc false
+  def get_names(userkeys, names \\ nil)
+  def get_names([], names), do: names
+  def get_names([userkey|tail], names) do
+    name = User.get(userkey) |> Map.get(:nick)
+    concatenated = if names, do: "#{names} #{name}", else: name
+    get_names tail, concatenated
+  end
 end
