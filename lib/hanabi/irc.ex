@@ -5,7 +5,7 @@ defmodule Hanabi.IRC do
   use Hanabi.IRC.Numeric
 
   @moduledoc """
-  IRC-related methods used for common tasks such as parsing/building/validating/etc.
+  IRC-related methods used for common tasks such as parsing/building/sending/validating.
   """
 
   @doc """
@@ -59,7 +59,7 @@ defmodule Hanabi.IRC do
   end
 
   @doc """
-  Resolve and returns an hostname given a TCP socket.
+  Resolves and returns an hostname given the port identifier of a TCP socket.
 
   If unable to determine the host, this methods returns the IP address.
   Used to populate the `:hostname` field of the `Hanabi.User` struct.
@@ -113,9 +113,9 @@ defmodule Hanabi.IRC do
   @doc """
   Send a message over the `port` TCP socket.
 
-  * If `msg` is a `Hanabi.IRC.Message` structure, it will be transformed to a
+  * If `msg` is a `Hanabi.IRC.Message` structure, it will be transformed into a
   properly formatted string using `build/1`
-  * If `msg` is a string, it will directly be transmitted
+  * If `msg` already is string, it will directly be transmitted
 
   This method takes care to append `<crlf>` at the end of the transmitted string.
   """
@@ -130,17 +130,18 @@ defmodule Hanabi.IRC do
   ## IRC helpers
 
   @doc """
-  Validates IRC strutures/formats.
+  Validates various IRC-related strutures/formats.
 
   ## Nickname validation
 
   `validate(:nick, nick)`
 
-  Returns :
+  Return values :
     * `{:ok, nick}` if the nickname is valid and unused
-    * `{:err, "432"}` (`@err_erroneusnickname`) if the nickname is invalid
-    * `{:err, "433"}` (`@err_nicknameinuse`) if the nickname is valid but already in use
+    * `{:err, @err_erroneusnickname}` if the nickname is invalid
+    * `{:err, @err_nicknameinuse}` if the nickname is valid but already in use
 
+  `@err_erroneusnickname` and `@err_nicknameinuse` are defined in `Hanabi.IRC.Numeric`.
   ```
   iex> Hanabi.IRC.validate :nick, "fnux"
   {:ok. "fnux"}
@@ -154,9 +155,9 @@ defmodule Hanabi.IRC do
 
   ```
   iex> Hanabi.IRC.validate :channel, "#hanabi"
-  :ok
+  true
   iex> Hanabi.IRC.validate :channel, "hanabi"
-  :err
+  false
   ```
 
   ## User validation
@@ -165,12 +166,9 @@ defmodule Hanabi.IRC do
 
   Validates a 'registerable' user (= all the required informations are present).
 
-  * `user` must be a `Hanabi.User` struct.
-  * The presence of the following fields is checked : `:key, :nick, :username,
-  :realname, :hostname`.
-
-  This method is used to check if an user has sent all the required parameters (
-  with the *NICK* and *USER* IRC commands) to access the server.
+  * `user` must be a `Hanabi.User` struct
+  * the presence of the following fields is checked : `:key, :nick, :username,
+  :realname, :hostname`
   """
   def validate(:nick, nick) do
     regex = ~r/\A[a-z_\-\[\]\\^{}|`][a-z0-9_\-\[\]\\^{}|`]{2,15}\z/ui
@@ -184,12 +182,7 @@ defmodule Hanabi.IRC do
 
   def validate(:channel, name) do
     regex = ~r/#\w+/ui
-
-    if String.match?(name, regex) do
-      :ok
-    else
-      :err
-    end
+    String.match?(name, regex)
   end
 
   def validate(:user, %User{}=user) do

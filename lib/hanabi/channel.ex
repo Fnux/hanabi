@@ -6,8 +6,9 @@ defmodule Hanabi.Channel do
   @hostname Application.get_env(:hanabi, :hostname)
   @table :hanabi_channels # ETS table, see Hanabi.Registry
   @moduledoc """
-  Entry point to interact with channels. This module define a structure to
-  represent them :
+  Entry point to interact with channels.
+
+  Channels are represented using the following structure :
 
   ```
   %Hanabi.Channel{
@@ -18,7 +19,7 @@ defmodule Hanabi.Channel do
   }
   ```
 
-  *Hanabi* maintains a registry storing all existing channels and using their
+  *Hanabi* maintains a registry storing all existing channels using their
   names (e.g. : `#hanabi`) as keys. This registry can be accessed using the
   `get/1`, `get_all/0`, `update/2`, `set/2` and `drop/1` methods.
   """
@@ -46,6 +47,8 @@ defmodule Hanabi.Channel do
     * `channel` is either the channel's identifier or struct.
     * `value` is a struct changeset, (`topic: "my topic"`, `%{topic:
     "my topic", users: [], ...}`)
+
+  Returns the updated struct or `nil`.
   """
   def update(%Channel{}=channel, change) do
     updated = struct(channel, change)
@@ -72,12 +75,16 @@ defmodule Hanabi.Channel do
   @doc """
   Send the message `msg` to every user in the channel `channel`.
 
-  Both `channel` and `msg` are represented by their respective struct.
+    * `channel` is a channel's struct or identifier
+    * `msg` is a message's struct
   """
   def broadcast(%Channel{}=channel, %Message{}=msg) do
     for user <- channel.users do
       User.send user, msg
     end
+  end
+  def broadcast(channel_name, %Message{}=msg) do
+    broadcast Channel.get(channel_name), msg
   end
 
   ###
@@ -87,11 +94,13 @@ defmodule Hanabi.Channel do
    Add an user to a channel.
 
     * `user` is either the user's struct or identifier
-    * `channel` is either the channel's struct or identifier
+    * `channel` is either the channel's struct or identifier. A new channel
+  will be created if there is no channel registered under the given identifier.
 
-  If the user is indeed added to the channel, an updated struct (of the channel)
-  is returned. If there's something wrong (unable to find matching items in
-  the registries), `err` is returned.
+  Return values :
+
+    * `{:ok, updated_channel}`
+    * `{:err, :no_such_user}`
   """
   def add_user(%User{}=user, %Channel{}=channel) do
     channel = Channel.update channel, users: channel.users ++ [user.key]
@@ -104,14 +113,26 @@ defmodule Hanabi.Channel do
     }
     Channel.broadcast(channel, join_msg)
 
-    channel
+    {:ok, channel}
   end
 
-  def add_user(nil, _), do: :err
-  def add_user(_, nil), do: :err
-  def add_user(u, %Channel{}=c), do: add_user(User.get(u), c)
-  def add_user(%User{}=u, c), do: add_user(u, Channel.get(c))
-  def add_user(u, c), do: add_user(User.get(u), Channel.get(c))
+  def add_user(nil, _), do: {:err, :no_such_user}
+  def add_user(user_key, %Channel{}=channel) do
+    add_user(User.get(user_key), channel)
+  end
+  def add_user(%User{}=user, channel_name) do
+    channel = case Channel.get(channel_name) do
+      nil ->
+        channel = %Channel{name: channel_name}
+        Channel.set channel_name, channel
+        channel
+      channel -> channel
+    end
+    add_user(user, channel)
+  end
+  def add_user(user_key, channel_name) do
+    add_user(User.get(user_key), Channel.get(channel_name))
+  end
 
   @doc """
   Remove an user from a channel.
@@ -120,8 +141,15 @@ defmodule Hanabi.Channel do
     * `channel` is either the channel's struct or identifier
     * `part_msg` is a string if specified
 
-    Returns `{:ok, updated_user_struct, updated_channel_struct}` if the user
-    is removed and `{:err, code, reason}` otherwise.
+  Return values :
+
+    * `{:ok, updated_channel}`
+    * `{:err, @err_notonchannel}`
+    * `{:err, @err_nosuchchannel}`
+    * `{:err, :no_such_user}`
+
+  `@err_notonchannel` and `@err_nosuchchannel` are defined in
+  `Hanabi.IRC.Numeric`.
   """
   def remove_user(user, channel, part_msg \\ nil)
   def remove_user(%User{}=user, %Channel{}=channel, part_msg) do
@@ -150,12 +178,10 @@ defmodule Hanabi.Channel do
       {:err, @err_nosuchchannel, "No such channel"}
     end
   end
-  def remove_user(nil, _, _), do: {:err, nil, "No such user"}
+  def remove_user(nil, _, _), do: {:err, nil, :no_such_user}
   def remove_user(user, channel_name, part_msg) do
     remove_user(User.get(user), channel_name, part_msg)
   end
-
-  @doc false
 
   @doc """
   Set the topic of a channel.
@@ -164,7 +190,10 @@ defmodule Hanabi.Channel do
   * `topic` is a string
   * `name` is the one who changed the topic. Defaults to the server's hostname
 
-  Returns `:ok` or `:err`.
+  Return values :
+
+    * `:ok`
+    * `:err` if there is no such channel under the given key
   """
   def set_topic(channel, topic, name \\ @hostname)
   def set_topic(%Channel{}=channel, topic, name) do

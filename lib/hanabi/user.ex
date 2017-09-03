@@ -5,8 +5,9 @@ defmodule Hanabi.User do
 
   @table :hanabi_users # ETS table name, see Hanabi.Registry
   @moduledoc """
-  Entry point to interact with users. This module define a structure
-  to represent them :
+  Entry point to interact with users.
+
+  Users are represented using the following structure :
 
   ```
   %Hanabi.User{
@@ -201,7 +202,7 @@ defmodule Hanabi.User do
   Return values :
     * `{:err, @err_erroneusnickname}`
     * `{:err, @err_nicknameinuse}`
-    * `{:err, "no such user"}`
+    * `{:err, :no_such_user"}`
     * `{:ok, new_nickname}`
 
   `@err_erroneusnickname` and `@err_nicknameinuse` are defined in
@@ -216,15 +217,16 @@ defmodule Hanabi.User do
           command: "NICK",
           middle: new_nickname
         }
-        user = User.update(user, nick: new_nickname)
 
         # Only if the user already have a nickname
         if user.nick, do: User.broadcast(user, notification)
 
+        user = User.update(user, nick: new_nickname)
+
         {:ok, user}
     end
   end
-  def change_nick(nil, _), do: {:err, "no such user"}
+  def change_nick(nil, _), do: {:err, :no_such_user}
   def change_nick(user_key, new_nickname) do
     change_nick(User.get(user_key), new_nickname)
   end
@@ -238,19 +240,19 @@ defmodule Hanabi.User do
   same username
     * `{:err, @err_erroneusnickname}`
     * `{:err, @err_nicknameinuse}`
-    * `{:err, "invalid port"}` : `:irc` user but `user.port` is not a port
-    * `{:err, "invalid pid"}` : `:virtual` user but `user.pid` is not a pid
+    * `{:err, :invalid_port}` : `:irc` user but `user.port` is not a port
+    * `{:err, :invalid_pid}` : `:virtual` user but `user.pid` is not a pid
     * `{:ok, identifier}`
 
   `@err_needmoreparams`, `@err_alreadyregistered`, `@err_erroneusnickname`
-  and `@err_nicknameinuse` are defined in `Hanabi.IRC.Numeric`
+  and `@err_nicknameinuse` are defined in `Hanabi.IRC.Numeric`.
   """
   def add(%User{}=user) do
     cond do
       !IRC.validate(:user, user) -> {:err, @err_needmoreparams}
       is_in_use?(:username, user.username) -> {:err, @err_alreadyregistered}
-      (user.type == :irc) && !Kernel.is_port(user.port) -> {:err, "invalid port"}
-      (user.type == :virtual) && !Kernel.is_pid(user.pid) -> {:err, "invalid pid"}
+      (user.type == :irc) && !Kernel.is_port(user.port) -> {:err, :invalid_port}
+      (user.type == :virtual) && !Kernel.is_pid(user.pid) -> {:err, :invalid_pid}
       true ->
         case IRC.validate(:nick, user.nick) do
           {:err, reason} -> {:err, reason}

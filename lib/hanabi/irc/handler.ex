@@ -52,13 +52,13 @@ defmodule Hanabi.IRC.Handler do
   # JOIN
   def join(%User{}=user, %Message{}=msg) do
     channel_name = msg.middle
-    if IRC.validate(:channel, channel_name) == :ok do
+    if IRC.validate(:channel, channel_name) do
       channel = case Channel.get(channel_name) do
         nil -> struct(Channel, name: channel_name)
         channel -> channel
       end
 
-      channel = Channel.add_user(user, channel)
+      {:ok, channel} = Channel.add_user(user, channel)
 
       rpl_topic = %Message{
         prefix: @hostname,
