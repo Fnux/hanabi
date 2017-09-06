@@ -68,7 +68,8 @@ defmodule Hanabi.Channel do
   @doc """
   Remove a channel from the registry given its identifier.
   """
-  def drop(key), do: Registry.drop @table, key
+  def destroy(%Channel{}=channel), do: Registry.drop @table, channel.name
+  def destroy(key), do: Registry.drop @table, key
 
   ###
 

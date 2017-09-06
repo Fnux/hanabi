@@ -17,6 +17,12 @@ defmodule Hanabi.Registry do
   ###
 
   def handle_call({:set, key, value}, _from, table) do
+    reply = :ets.insert_new(table, {key, value})
+
+    {:reply, reply, table}
+  end
+
+  def handle_call({:update, key, value}, _from, table) do
     reply = :ets.insert(table, {key, value})
 
     {:reply, reply, table}
@@ -44,10 +50,20 @@ defmodule Hanabi.Registry do
     {:reply, reply, table}
   end
 
+  def handle_call({:flush, table}, _from, table) do
+    reply = :ets.delete(table)
+    {:ok, new_table} = init(table)
+    {:reply, reply, new_table}
+  end
+
   ###
 
   def set(name, key, value) do
     GenServer.call name, {:set, key, value}
+  end
+
+  def update(name, key, value) do
+    GenServer.call name, {:update, key, value}
   end
 
   def get(name, key) do
@@ -60,5 +76,9 @@ defmodule Hanabi.Registry do
 
   def dump(name) do
     GenServer.call name, :dump
+  end
+
+  def flush(name) do
+    GenServer.call name, {:flush, name}
   end
 end

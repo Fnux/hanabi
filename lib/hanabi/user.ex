@@ -85,7 +85,7 @@ defmodule Hanabi.User do
   """
   def update(%User{}=user, value) do
     updated = struct(user, value)
-    if Registry.set(@table, user.key, updated), do: updated, else: nil
+    if Registry.update(@table, user.key, updated), do: updated, else: nil
   end
   def update(key, value) do
     user = User.get key
@@ -93,21 +93,19 @@ defmodule Hanabi.User do
   end
 
   @doc """
-  Save the `user` struct in the registry under the given identifier. Any
-  existing value will be overwritten.
+  Save the `user` struct in the registry under the given identifier. Returns
+  `false` if the key is already in use.
   """
-  def set(key, %User{}=user) do
-    case Registry.set(@table, key, user) do
-      true -> user
-      _ -> nil
-    end
-  end
+  def set(key, %User{}=user), do: Registry.set(@table, key, user)
 
   @doc """
   Remove an user from the registry given its struct or identifier.
   """
   def destroy(%User{}=user), do: Registry.drop @table, user.key
   def destroy(key), do: Registry.drop @table, key
+
+  @doc false
+  def flush_registry, do: Registry.flush @table
 
   ###
 
@@ -124,9 +122,12 @@ defmodule Hanabi.User do
   end
   def send(%User{}=user, %Message{}=msg) do
     case user.type do
-      :irc -> IRC.send(user.port, msg)
-      :virtual -> Kernel.send(user.pid, msg)
-      :void -> :noop
+      :irc ->
+        IRC.send(user.port, msg)
+      :virtual ->
+        Kernel.send(user.pid, msg)
+        :ok
+      :void -> :ok
     end
   end
   def send(userkey, %Message{}=msg) do
@@ -188,7 +189,7 @@ defmodule Hanabi.User do
   """
   def is_in_use?(field, value) do
     case get_by(field, value) do
-      {:ok, _} -> true
+      %User{} -> true
       _ -> false
     end
   end
@@ -242,6 +243,7 @@ defmodule Hanabi.User do
     * `{:err, @err_nicknameinuse}`
     * `{:err, :invalid_port}` : `:irc` user but `user.port` is not a port
     * `{:err, :invalid_pid}` : `:virtual` user but `user.pid` is not a pid
+    * `{:err, :key_in_use}`
     * `{:ok, identifier}`
 
   `@err_needmoreparams`, `@err_alreadyregistered`, `@err_erroneusnickname`
@@ -257,8 +259,11 @@ defmodule Hanabi.User do
         case IRC.validate(:nick, user.nick) do
           {:err, reason} -> {:err, reason}
           {:ok, _nick} ->
-            User.set(user.key, user)
-            {:ok, user.key}
+            if User.set(user.key, user) do
+              {:ok, user.key}
+            else
+              {:err, :key_in_use}
+            end
         end
     end
   end
