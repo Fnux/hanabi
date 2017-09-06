@@ -11,7 +11,8 @@ defmodule HanabiTest do
 
   def build_test_user(nick) when is_binary(nick) do
     key = String.to_atom(nick)
-    user = %User{
+
+    %User{
       key: key,
       nick: nick,
       username: nick,
@@ -20,8 +21,6 @@ defmodule HanabiTest do
       type: :virtual,
       pid: self()
     }
-
-    {key, user}
   end
 
   def build_test_channel(name) when is_binary(name) do
