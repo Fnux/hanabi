@@ -3,12 +3,6 @@ defmodule HanabiTest.User do
   use ExUnit.Case
   use Hanabi.IRC.Numeric
 
-  setup_all do
-    Hanabi.start()
-
-    :ok
-  end
-
   setup do
     User.flush_registry
     {key, user} = HanabiTest.build_test_user("default")

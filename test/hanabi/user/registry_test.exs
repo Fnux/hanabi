@@ -2,27 +2,19 @@ defmodule HanabiTest.User.Registry do
   alias Hanabi.User
   use ExUnit.Case
 
-  setup_all do
-    Hanabi.start()
-
-    :ok
-  end
-
   setup do
-    Hanabi.Registry.flush(:hanabi_users)
+    User.flush_registry
+
     [{_, first_user}, {_, second_user}] =
       HanabiTest.build_test_users(["first", "second"])
 
     #
-    Hanabi.User.set first_user.key, first_user
-    Hanabi.User.set second_user.key, second_user
+    User.set first_user.key, first_user
+    User.set second_user.key, second_user
 
     # Returned context
     [users: %{first: first_user, second: second_user}]
   end
-
-
-  # old
 
   # get/1
   test "User get registry", context do

@@ -1,5 +1,5 @@
 defmodule HanabiTest do
-  alias Hanabi.User
+  alias Hanabi.{User, Channel}
 
   def build_test_users(nicks, results \\ [])
   def build_test_users([], results), do: results
@@ -22,5 +22,15 @@ defmodule HanabiTest do
     }
 
     {key, user}
+  end
+
+  def build_test_channel(name) when is_binary(name) do
+    channel = %Channel{
+      name: name,
+      topic: "Default Topic"
+    }
+
+    key = channel.name
+    {key, channel}
   end
 end

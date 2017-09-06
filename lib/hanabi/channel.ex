@@ -52,7 +52,7 @@ defmodule Hanabi.Channel do
   """
   def update(%Channel{}=channel, change) do
     updated = struct(channel, change)
-    if Registry.set(@table, channel.name, updated), do: updated, else: nil
+    if Registry.update(@table, channel.name, updated), do: updated, else: nil
   end
   def update(key, change) do
     channel = Channel.get key
@@ -70,6 +70,9 @@ defmodule Hanabi.Channel do
   """
   def destroy(%Channel{}=channel), do: Registry.drop @table, channel.name
   def destroy(key), do: Registry.drop @table, key
+
+  @doc false
+  def flush_registry, do: Registry.flush @table
 
   ###
 
@@ -132,7 +135,7 @@ defmodule Hanabi.Channel do
     add_user(user, channel)
   end
   def add_user(user_key, channel_name) do
-    add_user(User.get(user_key), Channel.get(channel_name))
+    add_user(User.get(user_key), channel_name)
   end
 
   @doc """
