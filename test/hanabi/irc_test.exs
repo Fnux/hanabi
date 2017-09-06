@@ -3,14 +3,6 @@ defmodule HanabiTest.IRC do
   use ExUnit.Case
   use Hanabi.IRC.Numeric
 
-  test "IRC TCP socket" do
-    server = String.to_charlist("127.0.0.1")
-    port = Application.get_env :hanabi, :port
-    {status, _socket} = :gen_tcp.connect(server, port, [:binary])
-
-    assert status == :ok
-  end
-
   test "IRC command parser" do
     privmsg = ":Angel PRIVMSG Wiz :Hello are you receiving this message ?"
     topic = "TOPIC #test"
@@ -76,19 +68,4 @@ defmodule HanabiTest.IRC do
     assert not IRC.validate(:channel, invalid_2)
     assert IRC.validate(:channel, valid)
   end
-
-  #test "IRC client login"
-  #test "IRC client logout"
-  #test "IRC client PING"
-
-  #test "IRC client JOIN"
-  #test "IRC client PART"
-  #test "IRC client TOPIC"
-
-  #test "IRC client send PRIVMSG"
-  #test "IRC client receive PRIVMSG"
-
-  ###
-
-
 end
