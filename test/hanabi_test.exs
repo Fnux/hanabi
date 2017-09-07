@@ -24,12 +24,6 @@ defmodule HanabiTest do
   end
 
   def build_test_channel(name) when is_binary(name) do
-    channel = %Channel{
-      name: name,
-      topic: "Default Topic"
-    }
-
-    key = channel.name
-    {key, channel}
+    %Channel{name: name, topic: "Default Topic"}
   end
 end
