@@ -177,12 +177,20 @@ defmodule Hanabi.IRC.Handler do
 
       for channel_name <- channel_names do
         case Channel.remove_user(user, channel_name, msg.trailing) do
-          {:err, code, explanation} ->
+          {:err, @err_notonchannel} ->
             err = %Message{
               prefix: @hostname,
-              command: code,
+              command: @err_notonchannel,
               middle: channel_name,
-              trailing: explanation
+              trailing: "You're not on that channel"
+            }
+            User.send user, err
+          {:err, @err_nosuchchannel} ->
+            err = %Message{
+              prefix: @hostname,
+              command: @err_nosuchchannel,
+              middle: channel_name,
+              trailing: "No such channel"
             }
             User.send user, err
           _ -> :noop
