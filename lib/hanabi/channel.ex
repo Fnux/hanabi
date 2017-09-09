@@ -169,9 +169,9 @@ defmodule Hanabi.Channel do
       user = User.update user, channels: List.delete(user.channels, channel.name)
 
       # Returns
-      {:ok, user, channel}
+      {:ok, channel}
     else
-      {:err, @err_notonchannel, "You're not on that channel"}
+      {:err, @err_notonchannel}
     end
   end
   def remove_user(%User{}=user, channel_name, part_msg) do
@@ -179,10 +179,10 @@ defmodule Hanabi.Channel do
     if channel do
       remove_user(user, channel, part_msg)
     else
-      {:err, @err_nosuchchannel, "No such channel"}
+      {:err, @err_nosuchchannel}
     end
   end
-  def remove_user(nil, _, _), do: {:err, nil, :no_such_user}
+  def remove_user(nil, _, _), do: {:err, :no_such_user}
   def remove_user(user, channel_name, part_msg) do
     remove_user(User.get(user), channel_name, part_msg)
   end

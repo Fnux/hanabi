@@ -72,6 +72,7 @@ defmodule HanabiTest.IRC.Client do
     assert tuple == {:connected, state.host, state.port}
   end
 
+  @tag :todo # RLC_WELCOME required but not yet present in RFC1459
   test "IRC client login", context do
     state = context[:state]
 

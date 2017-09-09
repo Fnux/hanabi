@@ -71,7 +71,11 @@ defmodule Hanabi.Registry do
   end
 
   def drop(name, key) do
-    GenServer.call name, {:drop, key}
+    if get(name, key) do
+      GenServer.call name, {:drop, key}
+    else
+      false
+    end
   end
 
   def dump(name) do

@@ -24,8 +24,8 @@ defmodule HanabiTest.Channel do
     end
 
     Channel.add_user(@beta, @greek)
-    Channel.add_user(@beta, @latin)
-    Channel.add_user(@gamma, @latin)
+    Channel.add_user(@beta, @latin.name)
+    Channel.add_user(@gamma, @latin.name)
 
     :ok
   end
