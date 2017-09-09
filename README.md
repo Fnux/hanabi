@@ -7,8 +7,12 @@ services.
 
   * Documentation [on hexdocs.pm](https://hexdocs.pm/hanabi/readme.html).
   * [RFC1459](https://tools.ietf.org/html/rfc1459) : Internet Relay Chat
-  Protocol.
-  * [modern.ircdocs.horse](https://modern.ircdocs.horse/)
+  Protocol
+    * RFC2810
+    * RFC2811
+    * RFC2812
+    * RFC2813
+    * [modern.ircdocs.horse](https://modern.ircdocs.horse/)
   * Parts of the IRC-related code were inspired by
 [radar/elixir-irc](https://github.com/radar/elixir-irc).
 

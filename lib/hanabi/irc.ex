@@ -30,6 +30,7 @@ defmodule Hanabi.IRC do
       [_, prefix, command, params] = Regex.run(regex, line)
       {middle, trailing} = parse(:params, params)
 
+      prefix = unless (prefix == ""), do: prefix, else: nil
       %Message{prefix: prefix, command: command, middle: middle, trailing: trailing}
     else
       %Message{}

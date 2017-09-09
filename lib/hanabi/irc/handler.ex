@@ -301,11 +301,11 @@ defmodule Hanabi.IRC.Handler do
       realname = msg.trailing
       hostname = IRC.resolve_hostname(user.port)
 
-      user = struct user, %{
+      changeset = %{
         username: username, realname: realname, hostname: hostname
       }
 
-      User.add(user)
+      User.update(user, changeset)
     else
       err = %Message{
         prefix: @hostname,

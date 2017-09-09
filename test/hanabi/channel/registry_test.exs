@@ -2,10 +2,8 @@ defmodule HanabiTest.Channel.Registry do
   alias Hanabi.Channel
   use ExUnit.Case
 
-  Code.load_file("test/hanabi_test.exs") # ???
-
-  @greek HanabiTest.build_test_channel("#greek")
-  @latin HanabiTest.build_test_channel("#latin")
+  @greek HanabiTest.Helper.build_test_channel("#greek")
+  @latin HanabiTest.Helper.build_test_channel("#latin")
 
   setup do
     # Remove all existing data
@@ -45,7 +43,7 @@ defmodule HanabiTest.Channel.Registry do
 
   # set/2
   test "Channel registry set" do
-    hebrew = HanabiTest.build_test_channel("#hebrew")
+    hebrew = HanabiTest.Helper.build_test_channel("#hebrew")
 
     assert Channel.set(@greek.name, hebrew) == false # cannot override
     assert Channel.get(@greek.name) == @greek

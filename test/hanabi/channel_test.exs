@@ -3,12 +3,12 @@ defmodule HanabiTest.Channel do
   use ExUnit.Case
   use Hanabi.IRC.Numeric
 
-  @alpha HanabiTest.build_test_user("alpha")
-  @beta HanabiTest.build_test_user("beta")
-  @gamma HanabiTest.build_test_user("gamma")
+  @alpha HanabiTest.Helper.build_test_user("alpha")
+  @beta HanabiTest.Helper.build_test_user("beta")
+  @gamma HanabiTest.Helper.build_test_user("gamma")
 
-  @greek HanabiTest.build_test_channel("#greek")
-  @latin HanabiTest.build_test_channel("#latin")
+  @greek HanabiTest.Helper.build_test_channel("#greek")
+  @latin HanabiTest.Helper.build_test_channel("#latin")
 
   setup do
     # Remove existing data

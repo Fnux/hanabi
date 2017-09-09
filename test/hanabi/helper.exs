@@ -1,4 +1,4 @@
-defmodule HanabiTest do
+defmodule HanabiTest.Helper do
   alias Hanabi.{User, Channel}
 
   def build_test_users(nicks, results \\ [])

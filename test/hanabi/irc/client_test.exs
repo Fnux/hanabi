@@ -82,13 +82,20 @@ defmodule HanabiTest.IRC.Client do
     assert tuple == :logged_in
   end
 
+  @tag :todo
   test "IRC client logout"
+  @tag :todo
   test "IRC client PING"
 
+  @tag :todo
   test "IRC client JOIN"
+  @tag :todo
   test "IRC client PART"
+  @tag :todo
   test "IRC client TOPIC"
 
+  @tag :todo
   test "IRC client send PRIVMSG"
+  @tag :todo
   test "IRC client receive PRIVMSG"
 end

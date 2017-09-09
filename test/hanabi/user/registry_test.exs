@@ -2,12 +2,12 @@ defmodule HanabiTest.User.Registry do
   alias Hanabi.User
   use ExUnit.Case
 
-  @alpha HanabiTest.build_test_user("alpha")
-  @beta HanabiTest.build_test_user("beta")
-  @gamma HanabiTest.build_test_user("gamma")
+  @alpha HanabiTest.Helper.build_test_user("alpha")
+  @beta HanabiTest.Helper.build_test_user("beta")
+  @gamma HanabiTest.Helper.build_test_user("gamma")
 
   setup do
-    # Remove all exisring data
+    # Remove all existing data
     User.flush_registry
 
     # Add some test users
@@ -21,7 +21,7 @@ defmodule HanabiTest.User.Registry do
 
   # get/1
   test "User get registry" do
-    assert User.get(:alpha) == @alpha
+    assert User.get(@alpha.key) == @alpha
     assert User.get(:unknown) == nil
   end
 
@@ -29,9 +29,9 @@ defmodule HanabiTest.User.Registry do
   test "User registry get_all" do
     output = User.get_all
 
-    assert [{@gamma.key, @gamma}] in output
     assert [{@alpha.key, @alpha}] in output
     assert [{@beta.key, @beta}] in output
+    assert [{@gamma.key, @gamma}] in output
   end
 
   # update/2
@@ -45,7 +45,7 @@ defmodule HanabiTest.User.Registry do
 
   # set/2
   test "User registry set" do
-    delta = HanabiTest.build_test_user("delta")
+    delta = HanabiTest.Helper.build_test_user("delta")
 
     assert User.set(@alpha.key, delta) == false # Cannot override existing data
     assert User.get(@alpha.key) == @alpha
