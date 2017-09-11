@@ -6,7 +6,7 @@ services.
 Since Hanabi is an IRC server, messages and errors are designed to match the
 definitions of the IRC specification
 ([RFC1459](https://tools.ietf.org/html/rfc1459)) : see `Hanabi.IRC.Message` for
-a message's structure and `Hanabi.IRC.Numeric` for reply/error codes. Most of
+message structures and `Hanabi.IRC.Numeric` for reply/error codes. Most of
 the interactions with this library are done via the `Hanabi.User` and
 `Hanabi.Channel` modules.
 
@@ -43,50 +43,53 @@ config :hanabi, port: 6667,
 
 ## Examples
 
-Here are a few basic example. Feel free to ask more examples
+Here are a few basic example. Feel free to ask for more examples
 [here](https://github.com/Fnux/hanabi/) !
 
 ### Sending a private message to an user/channel
 
 ```elixir
-# Sending to an user (helper)
-
-@TODO
-```
-
-```elixir
-# Sending to an user (manually)
+# Sending to an user
 iex> receiver = Hanabi.User.get_by(:nick, "fnux")
 %Hanabi.User{channels: ["#test"], hostname: 'localhost', key: #Port<0.5044>,
  nick: "fnux", pid: nil, port: #Port<0.5044>, realname: "realname", type: :irc,
  username: "fnux"}
 
-# "sender!~sender@localhost" can be computed using Hanabi.User.ident_for/1
-# given the sender's user struct
-iex> msg = %Hanabi.IRC.Message{prefix: "sender!~sender@localhost",
+iex> sender = Hanabi.User.get_by(:nick, "sender")
+# ...
+
+###
+# Using the helper
+iex> Hanabi.User.send_privmsg sender, receiver, "Hello fnux! How are you?"
+:ok
+
+###
+# Manually
+iex> msg = %Hanabi.IRC.Message{prefix: Hanabi.User.ident_for(sender),
 command: "PRIVMSG", middle: receiver.nick, trailing: "Hello fnux! How are you?"}
+# ...
 
 iex> Hanabi.User.send receiver, msg
 :ok
 ```
 
 ```elixir
-# Sending to a channel (helper)
-
-@TODO
-```
-
-```elixir
-# Sending to a channel (manually)
+# Sending to a channel
 iex> user = Hanabi.User.get_by(:nick, "fnux")
 %Hanabi.User{channels: ["#test"], hostname: 'localhost', key: #Port<0.5044>,
  nick: "fnux", pid: nil, port: #Port<0.5044>, realname: "realname", type: :irc,
  username: "fnux"}
 
-iex> msg = %Hanabi.IRC.Message{prefix: Hanabi.User.ident_for(user),
+###
+# Using the helper
+iex> Hanabi.Channel.send_privmsg sender, "#test", "Hi there!"
+:ok
+
+###
+# Manually
+iex> msg = %Hanabi.IRC.Message{prefix: Hanabi.User.ident_for(sender),
 command: "PRIVMSG", middle: "#test", trailing: "Hi there!"}
-%Hanabi.IRC.Message{command: "PRIVMSG", middle: "#test",
- prefix: "fnux!~fnux@localhost", trailing: "Hi there!"}
+# ...
 
 iex> Hanabi.Channel.broadcast "#test", msg
 :ok

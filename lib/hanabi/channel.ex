@@ -97,6 +97,31 @@ defmodule Hanabi.Channel do
   # Specific actions
 
   @doc """
+  Convenience function to send a PRIVMSG to a channel.
+  """
+  def send_privmsg(%User{}=sender, %Channel{}=channel, content) do
+    msg = %Message{
+      prefix: User.ident_for(sender),
+      command: "PRIVMSG",
+      middle: channel.name,
+      trailing: content
+    }
+
+    Channel.broadcast channel, msg
+  end
+  def send_privmsg(nil, _, _), do: :err
+  def send_privmsg(_, nil, _), do: :err
+  def send_privmsg(%User{}=user, channel_name, content) do
+    send_privmsg user, Channel.get(channel_name), content
+  end
+  def send_privmsg(user_key, %Channel{}=channel, content) do
+    send_privmsg User.get(user_key), channel, content
+  end
+  def send_privmsg(user_key, channel_name, content) do
+    send_privmsg User.get(user_key), Channel.get(channel_name), content
+  end
+
+  @doc """
    Add an user to a channel.
 
     * `user` is either the user's struct or identifier
@@ -168,7 +193,7 @@ defmodule Hanabi.Channel do
       }
 
       channel = Channel.update channel, users: List.delete(channel.users, user.key)
-      user = User.update user, channels: List.delete(user.channels, channel.name)
+      _user = User.update user, channels: List.delete(user.channels, channel.name)
 
       # Returns
       {:ok, channel}

@@ -198,6 +198,31 @@ defmodule Hanabi.User do
   # Specific actions
 
   @doc """
+  Convenience function to send a PRIVMSG to an user.
+  """
+  def send_privmsg(%User{}=sender, %User{}=receiver, content) do
+    msg = %Message{
+      prefix: ident_for(sender),
+      command: "PRIVMSG",
+      middle: receiver.nick,
+      trailing: content
+    }
+
+    User.send receiver, msg
+  end
+  def send_privmsg(nil, _, _), do: :err
+  def send_privmsg(_, nil, _), do: :err
+  def send_privmsg(%User{}=sender, receiver_key, content) do
+    send_privmsg sender, User.get(receiver_key), content
+  end
+  def send_privmsg(sender_key, %User{}=receiver, content) do
+    send_privmsg User.get(sender_key), receiver, content
+  end
+  def send_privmsg(sender_key, receiver_key, content) do
+    send_privmsg User.get(sender_key), User.get(receiver_key), content
+  end
+
+  @doc """
   Changes the nick of the given user (identifier or struct).
 
   Return values :
