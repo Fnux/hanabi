@@ -165,11 +165,9 @@ defmodule Hanabi.IRC do
 
   `validate(:user, user)`
 
-  Validates a 'registerable' user (= all the required informations are present).
-
-  * `user` must be a `Hanabi.User` struct
-  * the presence of the following fields is checked : `:key, :nick, :username,
-  :realname, :hostname`
+  Validates a 'registerable' user, which means that the following fields of the
+  `user` struct must be present : `:key, :nick, :username, :realname, :hostname`.
+  Returns either `true` or `false`.
   """
   def validate(:nick, nick) do
     regex = ~r/\A[a-z_\-\[\]\\^{}|`][a-z0-9_\-\[\]\\^{}|`]{2,15}\z/ui

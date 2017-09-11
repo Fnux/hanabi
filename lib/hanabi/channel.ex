@@ -84,8 +84,10 @@ defmodule Hanabi.Channel do
   """
   def broadcast(%Channel{}=channel, %Message{}=msg) do
     for user <- channel.users do
-      User.send user, msg
+      :ok = User.send(user, msg)
     end
+
+    :ok
   end
   def broadcast(channel_name, %Message{}=msg) do
     broadcast Channel.get(channel_name), msg
