@@ -84,8 +84,11 @@ defmodule Hanabi.Channel do
     * `msg` is a message's struct
   """
   def broadcast(%Channel{}=channel, %Message{}=msg) do
-    for user <- channel.users do
-      :ok = User.send(user, msg)
+    for user_key <- channel.users do
+      user = User.get(user_key)
+      if user.type in channel.relay_to do
+        :ok = User.send(user, msg)
+      end
     end
 
     :ok
