@@ -15,7 +15,8 @@ defmodule Hanabi.Channel do
     name: nil,
     relay_to: [:irc, :virtual],
     topic: "",
-    users: []
+    users: [],
+    data: nil # allows you to store custom values
   }
   ```
 
@@ -24,7 +25,7 @@ defmodule Hanabi.Channel do
   `get/1`, `get_all/0`, `update/2`, `set/2` and `drop/1` methods.
   """
 
-  defstruct name: nil, users: [], topic: "", relay_to: [:irc, :virtual]
+  defstruct name: nil, users: [], topic: "", relay_to: [:irc, :virtual], data: nil
 
   ####
   # Registry access

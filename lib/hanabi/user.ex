@@ -19,7 +19,8 @@ defmodule Hanabi.User do
     port: nil,
     realname: nil,
     type: :irc,
-    username: nil
+    username: nil,
+    data: nil # allows you to store custom values
   }
   ```
 
@@ -44,6 +45,7 @@ defmodule Hanabi.User do
     type: :irc,
     port: nil,
     pid: nil,
+    data: nil,
     channels: []
 
   ####
