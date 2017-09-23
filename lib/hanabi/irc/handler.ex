@@ -7,6 +7,7 @@ defmodule Hanabi.IRC.Handler do
   @moduledoc false
   @motd_file Application.get_env(:hanabi, :motd)
   @hostname Application.get_env(:hanabi, :hostname)
+  @password Application.get_env(:hanabi, :password)
 
   def start_link() do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
@@ -37,6 +38,7 @@ defmodule Hanabi.IRC.Handler do
       "NAMES" -> names(user, msg)
       "NICK" -> set_nick(user, msg.middle)
       "PART" -> part(user, msg)
+      "PASS" -> pass(user, msg)
       "PING" -> pong(user, msg)
       "PRIVMSG" -> privmsg(user, msg)
       "QUIT" -> quit(user, msg)
@@ -206,6 +208,23 @@ defmodule Hanabi.IRC.Handler do
       User.send user, err
     end
   end
+
+  # PASS
+  def pass(%User{}=user, %Message{}=msg) do
+    if msg.middle do
+      validation_status = (msg.middle == @password)
+      User.update(user, is_pass_validated?: validation_status)
+    else
+      err = %Message{
+        prefix: @hostname,
+        command: @err_needmoreparams,
+        middle: "PART",
+        trailing: "Not enough parameters"
+      }
+      User.send user, err
+    end
+  end
+
 
   # PING / PONG
   def pong(%User{}=user, %Message{}=msg) do

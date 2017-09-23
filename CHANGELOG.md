@@ -6,6 +6,7 @@
   the user to store custom values
 * Channel : only relay messages to the users having their `type` in the
   `relay_to` field
+* Add the possibility to set a server-wide password (PASS) in `config.exs`
 
 ## v0.1.0 (2017-09-11)
 

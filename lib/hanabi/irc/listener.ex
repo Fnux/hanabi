@@ -6,6 +6,7 @@ defmodule Hanabi.IRC.Listener do
 
   @moduledoc false
   @handler Hanabi.IRC.Handler
+  @password Application.get_env(:hanabi, :password)
 
   def start_link(client) do
     GenServer.start_link(__MODULE__, client)
@@ -48,34 +49,41 @@ defmodule Hanabi.IRC.Listener do
 
   defp initial_handle(client, data) do
     # Însert a new user in the registry if it does not exist yet
-    unless User.get(client) do
-      User.set(client, struct(User, %{port: client, key: client}))
+    lookup = User.get(client)
+    user = if lookup do
+      lookup
+    else
+      new_user = struct(User, %{port: client, key: client})
+      User.set(client, new_user)
+      new_user
     end
 
     msg = IRC.parse(data)
 
-    case msg.command do
-      "CAP" -> :not_implemented # client capability negotiation extension, IRCv3.x
-      "PASS" -> :not_implemented # ignored
-      "NICK" -> GenServer.call(@handler, {client, msg})
-      "USER" -> GenServer.call(@handler, {client, msg})
-      _ -> Logger.debug "Ignored command (initial serve) : #{msg.command}"
-    end
+    # If a server-wide password is required, it must precede NICK/USER
+    if @password && not user.is_pass_validated? do
+      # Only process PASS
+      if msg.command == "PASS", do: GenServer.call(@handler, {client, msg})
 
-    user = User.get(client) # user was most likely modified
-    if IRC.validate(:user, user) do
-      Logger.debug "New IRC user : #{User.ident_for(user)}"
-
-      # send MOTD
-      Kernel.send(
-        @handler, {client, %Message{command: "MOTD"}}
-      )
-
-      send self(), :serve
-    else
-      # User has not sent through all the right messages yet.
-      # Keep listening!
       initial_serve(client)
+    else
+      # Only process PASS, NICK and USER
+      if msg.command in ["PASS", "NICK", "USER"], do: GenServer.call(@handler, {client, msg})
+
+      user = User.get(client) # user was most likely modified
+      if IRC.validate(:user, user) do
+        Logger.debug "New IRC user : #{User.ident_for(user)}"
+
+        # send MOTD
+        Kernel.send(
+          @handler, {client, %Message{command: "MOTD"}}
+        )
+
+        send self(), :serve
+      else
+        # User has not sent through all the right messages yet. Keep listening!
+        initial_serve(client)
+      end
     end
   end
 

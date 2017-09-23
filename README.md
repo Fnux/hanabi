@@ -39,6 +39,8 @@ You also have to add the following to your `config/config.exs` file :
 config :hanabi, port: 6667,
                 hostname: "my.awesome.hostname",
                 motd: "/path/to/motd.txt"
+                # server-wide password (PASS) if set
+                # , password: "mypassword"
 ```
 
 ## Examples

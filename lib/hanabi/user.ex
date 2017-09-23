@@ -13,6 +13,7 @@ defmodule Hanabi.User do
   %Hanabi.User{
     channels: [],
     hostname: nil,
+    is_pass_validated?: false,
     key: nil,
     nick: nil,
     pid: nil,
@@ -42,6 +43,7 @@ defmodule Hanabi.User do
     username: nil,
     realname: nil,
     hostname: nil,
+    is_pass_validated?: false,
     type: :irc,
     port: nil,
     pid: nil,
