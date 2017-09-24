@@ -33,6 +33,7 @@ defmodule Hanabi.IRC.Handler do
     user = User.get(client)
     case msg.command do
       "JOIN" -> join(user, msg)
+      "LIST" -> list(user, msg)
       "MODE" -> :not_implemented # @TODO
       "MOTD" -> send_motd(user)
       "NAMES" -> names(user, msg)
@@ -80,6 +81,56 @@ defmodule Hanabi.IRC.Handler do
       }
       User.send user, err
     end
+  end
+
+  # LIST
+  def list(%User{}=user, %Message{}=msg) do
+    #RPL_LISTSTART
+    User.send user, %Message{
+      prefix: @hostname,
+      command: @rpl_liststart,
+      middle: "Channel",
+      trailing: "Users Name"
+    }
+
+    #RPL_LIST
+    keys = if msg.middle do
+      String.split(msg.middle, ",")
+    else
+      Channel.get_all_keys()
+    end
+
+    for key <- keys do
+      channel = Channel.get(key)
+      cond do
+        channel ->
+          user_count = Enum.count(channel.users)
+
+          User.send user, %Message{
+            command: @rpl_list,
+            prefix: @hostname,
+            middle: "#{channel.name} #{user_count}",
+            trailing: channel.topic
+          }
+        IRC.validate(:channel, key) ->
+          User.send user, %Message{
+            command: @err_nosuchnick,
+            prefix: @hostname,
+            middle: key,
+            trailing: "No such nick/channel"
+          }
+        true ->
+          # Invalid channel name, just ignore
+          :noop
+      end
+    end
+
+    #RPL_LISTEND
+    User.send user, %Message{
+      prefix: @hostname,
+      command: @rpl_listend,
+      trailing: "End of /LIST"
+    }
   end
 
   # MODE
@@ -224,7 +275,6 @@ defmodule Hanabi.IRC.Handler do
       User.send user, err
     end
   end
-
 
   # PING / PONG
   def pong(%User{}=user, %Message{}=msg) do

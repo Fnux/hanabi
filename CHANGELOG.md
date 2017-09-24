@@ -7,6 +7,7 @@
 * Channel : only relay messages to the users having their `type` in the
   `relay_to` field
 * Add the possibility to set a server-wide password (PASS) in `config.exs`
+* Add handling of the list (LIST) message
 
 ## v0.1.0 (2017-09-11)
 

@@ -50,10 +50,25 @@ defmodule Hanabi.Registry do
     {:reply, reply, table}
   end
 
+  def handle_call(:dump_keys, _from, table) do
+    reply = build_key_list(table, :ets.first(table))
+
+    {:reply, reply, table}
+  end
+
   def handle_call({:flush, table}, _from, table) do
     reply = :ets.delete(table)
     {:ok, new_table} = init(table)
     {:reply, reply, new_table}
+  end
+
+  ###
+
+  defp build_key_list(table, previous_key, list \\ [])
+  defp build_key_list(_table, :"$end_of_table", list), do: list
+  defp build_key_list(table, previous_key, list) do
+    key = :ets.next(table, previous_key)
+    build_key_list table, key, list ++ [previous_key]
   end
 
   ###
@@ -80,6 +95,10 @@ defmodule Hanabi.Registry do
 
   def dump(name) do
     GenServer.call name, :dump
+  end
+
+  def dump_keys(name) do
+    GenServer.call name, :dump_keys
   end
 
   def flush(name) do

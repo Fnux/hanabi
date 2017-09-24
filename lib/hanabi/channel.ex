@@ -38,6 +38,11 @@ defmodule Hanabi.Channel do
   def get(key), do: Registry.get @table, key
 
   @doc """
+  Returns a list containing all the registered keys (= channel names).
+  """
+  def get_all_keys(), do: Registry.dump_keys @table
+
+  @doc """
   Returns a list containing all the pairs `{key, channel_struct}`.
   """
   def get_all(), do: Registry.dump @table

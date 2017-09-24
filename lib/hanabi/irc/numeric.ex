@@ -20,6 +20,9 @@ defmodule Hanabi.IRC.Numeric do
 
   defmacro __using__(_) do
     quote do
+      @rpl_liststart "321"
+      @rpl_list "322"
+      @rpl_listend "323"
       @rpl_topic "332"
       @rpl_namreply "353"
       @rpl_endofnames "366"
