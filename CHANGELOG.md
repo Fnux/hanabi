@@ -8,6 +8,7 @@
   `relay_to` field
 * Add the possibility to set a server-wide password (PASS) in `config.exs`
 * Add handling of the list (LIST) message
+* Add handling of the whois (WHOIS) query
 
 ## v0.1.0 (2017-09-11)
 

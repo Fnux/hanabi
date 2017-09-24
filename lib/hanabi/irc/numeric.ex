@@ -20,6 +20,8 @@ defmodule Hanabi.IRC.Numeric do
 
   defmacro __using__(_) do
     quote do
+      @rpl_whoisuser "311"
+      @rpl_endofwhois "318"
       @rpl_liststart "321"
       @rpl_list "322"
       @rpl_listend "323"
@@ -33,6 +35,7 @@ defmodule Hanabi.IRC.Numeric do
       @err_nosuchnick "401"
       @err_nosuchchannel "403"
       @err_nomotd "422"
+      @err_nonicknamegiven "431"
       @err_erroneusnickname "432"
       @err_nicknameinuse "433"
       @err_notonchannel "442"

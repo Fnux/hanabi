@@ -45,7 +45,8 @@ defmodule Hanabi.IRC.Handler do
       "QUIT" -> quit(user, msg)
       "TOPIC" -> topic(user, msg)
       "USER" -> register(user, msg)
-      "WHO" -> :not_implemented # @TODO
+      "WHO" -> who(user, msg)
+      "WHOIS" -> whois(user, msg)
       _ -> Logger.warn "Unknown command : #{msg.command}"
     end
   end
@@ -395,5 +396,47 @@ defmodule Hanabi.IRC.Handler do
   end
 
   # WHO
+  def who(%User{}=user, %Message{}=msg) do
+    :not_yet_implemented
+  end
 
+  # WHOIS
+  def whois(%User{}=user, %Message{}=msg) do
+    if msg.middle do
+      # Only handle the first one
+      nick = msg.middle |> String.split(",") |> List.first
+      lookup = User.get_by(:nick, nick)
+
+      if lookup do
+        rpl_whoisuser = %Message{
+          prefix: @hostname,
+          command: @rpl_whoisuser,
+          middle: "#{lookup.nick} #{lookup.username} #{lookup.hostname} *",
+          trailing: lookup.realname
+        }
+        rpl_endofwhois = %Message{
+          prefix: @hostname,
+          command: @rpl_endofwhois,
+          middle: lookup.nick,
+          trailing: "End of /WHOIS list"
+        }
+        User.send user, [rpl_whoisuser, rpl_endofwhois]
+      else
+        err = %Message{
+          prefix: @hostname,
+          command: @err_nosuchnick,
+          middle: nick,
+          trailing: "No such nick/channel"
+        }
+        User.send user, err
+      end
+    else
+      err = %Message{
+        prefix: @hostname,
+        command: @err_nonicknamegiven,
+        trailing: "No nickname given"
+      }
+      User.send user, err
+    end
+  end
 end
