@@ -1,22 +1,22 @@
 # Hanabi
 
 Hanabi is a (work in progress) IRC server designed to build bridges between
-services.
+services. I would like to keep this library as simple as possible, therefore
+it currently only implements **[1]** [RFC1459](https://tools.ietf.org/html/rfc1459).
 
 Since Hanabi is an IRC server, messages and errors are designed to match the
-definitions of the IRC specification
-([RFC1459](https://tools.ietf.org/html/rfc1459)) : see `Hanabi.IRC.Message` for
+definitions of the IRC specification : see `Hanabi.IRC.Message` for
 message structures and `Hanabi.IRC.Numeric` for reply/error codes. Most of
 the interactions with this library are done via the `Hanabi.User` and
 `Hanabi.Channel` modules.
+
+**[1] :** only the client<->server part, you can't connect other servers to hanabi.
 
 ## Useful links
 
   * Documentation [on hexdocs.pm](https://hexdocs.pm/hanabi/readme.html).
   * Changelog [on github.com](https://github.com/Fnux/hanabi/blob/master/CHANGELOG.md).
-  * Internet Relay Chat Protocol : [RFC1459](https://tools.ietf.org/html/rfc1459),
-    [RFC2811](https://tools.ietf.org/html/rfc2811),
-    [modern.ircdocs.horse](https://modern.ircdocs.horse/)
+  * Internet Relay Chat Protocol : [RFC1459](https://tools.ietf.org/html/rfc1459)
   * Parts of the IRC-related code were inspired by
 [radar/elixir-irc](https://github.com/radar/elixir-irc).
 
