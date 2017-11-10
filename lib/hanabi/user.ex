@@ -71,12 +71,11 @@ defmodule Hanabi.User do
   highly inefficient for a large set of users.
   """
   def get_by(field, value) do
-    result = Enum.find(get_all(), fn([{_,user}]) -> Map.get(user, field) == value end)
-    if result do
-      {_key, user} = List.first(result)
-      user
-    else
-      nil
+    result = Registry.match(@table, {:'_', %{field => value}}, 1)
+
+    case result do
+      [{_key, user}] -> user
+      _ -> nil
     end
   end
 

@@ -39,6 +39,28 @@ defmodule Hanabi.Registry do
     {:reply, reply, table}
   end
 
+  def handle_call({:match, pattern}, _from, table) do
+    lookup = :ets.match_object(table, pattern)
+
+    reply = case lookup do
+      [] -> nil
+      _ -> lookup
+    end
+
+    {:reply, reply, table}
+  end
+
+  def handle_call({:match, pattern, limit}, _from, table) do
+    lookup = :ets.match_object(table, pattern, limit)
+
+    reply = case lookup do
+      {result, _} -> result
+       _ -> nil # :"$end_of_table"
+    end
+
+    {:reply, reply, table}
+  end
+
   def handle_call({:drop, key}, _from, table) do
     reply = :ets.delete(table, key)
 
@@ -83,6 +105,14 @@ defmodule Hanabi.Registry do
 
   def get(name, key) do
     GenServer.call name, {:get, key}
+  end
+
+  def match(name, pattern) do
+    GenServer.call name, {:match, pattern}
+  end
+
+  def match(name, pattern, limit) do
+    GenServer.call name, {:match, pattern, limit}
   end
 
   def drop(name, key) do
