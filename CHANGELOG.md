@@ -1,7 +1,8 @@
 # Changelog for Hanabi (hanabi on hex.pm)
 
-## v0.1.1 (2017-??-??)
+## v0.1.1 (2017-11-28)
 
+* Use ETS to lookup users using non-key elements (nick, username, ...)
 * Add the `data` field to the Hanabi.User and Hanabi.Channel structs, allowing
   the user to store custom values
 * Channel : only relay messages to the users having their `type` in the
