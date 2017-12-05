@@ -28,7 +28,7 @@ in `mix.exs` :
 ```elixir
 def deps do
   [
-    {:hanabi, "~> 0.1.0"}
+    {:hanabi, "~> 0.1.2"}
   ]
 end
 ```
@@ -39,6 +39,8 @@ You also have to add the following to your `config/config.exs` file :
 config :hanabi, port: 6667,
                 hostname: "my.awesome.hostname",
                 motd: "/path/to/motd.txt"
+                network_name: "Hanabi Demo",
+                network_created_on: "on 2017-12-04 17:22"
                 # server-wide password (PASS) if set
                 # , password: "mypassword"
 ```
