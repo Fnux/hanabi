@@ -3,6 +3,15 @@ defmodule Hanabi do
 
   @moduledoc false
   @port Application.get_env :hanabi, :port
+  @app Mix.Project.config[:app]
+  @version Mix.Project.config[:version]
+
+  ###
+
+  def app(), do: @app
+  def version(), do: @version
+
+  ###
 
   def start(), do: start(nil, nil)
   def start(_type, _args) do

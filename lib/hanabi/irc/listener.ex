@@ -1,5 +1,5 @@
 defmodule Hanabi.IRC.Listener do
-  alias Hanabi.{User, IRC, IRC.Message}
+  alias Hanabi.{User, IRC}
   require Logger
   use Hanabi.IRC.Numeric
   use GenServer
@@ -74,10 +74,8 @@ defmodule Hanabi.IRC.Listener do
       if IRC.validate(:user, user) do
         Logger.debug "New IRC user : #{User.ident_for(user)}"
 
-        # send MOTD
-        Kernel.send(
-          @handler, {client, %Message{command: "MOTD"}}
-        )
+        # Greet the user!
+        Kernel.send(@handler, {:greet, client})
 
         send self(), :serve
       else

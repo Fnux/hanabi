@@ -31,5 +31,7 @@ use Mix.Config
 
 config :hanabi, port: 6667,
                 hostname: "irc.localhost",
-                motd: "/path/to/motd.txt"
+                motd: "/path/to/motd.txt",
+                network_name: "Hanabi Demo",
+                network_created_on: "on 2017-12-04 17:22"
                 # , password: "mypassword"

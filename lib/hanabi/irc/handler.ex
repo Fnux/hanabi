@@ -9,12 +9,23 @@ defmodule Hanabi.IRC.Handler do
   @hostname Application.get_env(:hanabi, :hostname)
   @password Application.get_env(:hanabi, :password)
 
+  # User and channel modes are not supported yet
+  # See issues 9, 12, 13 and 14 on github
+  @available_user_modes []
+  @available_channel_modes []
+
   def start_link() do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
   def init(_) do
     {:ok, nil}
+  end
+
+  def handle_info({:greet, client}, state) do
+    greet(client)
+
+    {:noreply, state}
   end
 
   def handle_info({client, %Message{}=msg}, state) do
@@ -52,6 +63,59 @@ defmodule Hanabi.IRC.Handler do
   end
 
   ###
+  # Internal
+
+  def greet(client) do
+    user = User.get(client)
+
+    {:ok, hostname} = :inet.gethostname
+    version = "#{Hanabi.app()}-#{Hanabi.version()}"
+
+    network_name = Application.get_env(:hanabi, :network_name)
+    created_on = Application.get_env(:hanabi, :network_created_on)
+    available_user_modes = List.to_string(@available_user_modes)
+    available_channel_modes = List.to_string(@available_channel_modes)
+
+    # RPL_WELCOME
+    User.send user, %Message{
+      prefix: @hostname,
+      command: @rpl_welcome,
+      middle: user.nick,
+      trailing:
+        "Welcome to the #{network_name} Network, #{User.ident_for(user)}"
+    }
+
+    # RPL_YOURHOST
+    User.send user, %Message{
+      prefix: @hostname,
+      command: @rpl_yourhost,
+      middle: user.nick,
+      trailing:
+        "Your host is #{hostname}, running version #{version}"
+    }
+
+    # RPL_CREATED
+    User.send user, %Message{
+      prefix: @hostname,
+      command: @rpl_created,
+      middle: user.nick,
+      trailing: "This server was created #{created_on}"
+    }
+
+    # RPL_MYINFO
+    User.send user, %Message{
+      prefix: @hostname,
+      command: @rpl_myinfo,
+      middle: "#{user.nick} #{hostname} #{version} #{available_user_modes} \
+      #{available_channel_modes}"
+    }
+
+    # Message Of The Day (MOTD)
+    Kernel.send(self(), {client, %Message{command: "MOTD"}})
+  end
+
+  ###
+  # Handling incoming messages
 
   # JOIN
   def join(%User{}=user, %Message{}=msg) do

@@ -20,6 +20,11 @@ defmodule Hanabi.IRC.Numeric do
 
   defmacro __using__(_) do
     quote do
+      @rpl_welcome "001"
+      @rpl_yourhost "002"
+      @rpl_created "003"
+      @rpl_myinfo "004"
+
       @rpl_whoisuser "311"
       @rpl_endofwhois "318"
       @rpl_liststart "321"

@@ -30,7 +30,9 @@ use Mix.Config
 #     import_config "#{Mix.env}.exs"
 config :hanabi, port: 6667,
                 hostname: "irc.localhost",
-                motd: "/tmp/motd.txt"
+                motd: "/tmp/motd.txt",
+                network_name: "Hanabi Demo",
+                network_created_on: "2017-12-04 17:22"
                 #password: "tototo"
 
 config :logger, :console,

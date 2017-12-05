@@ -1,5 +1,10 @@
 # Changelog for Hanabi (hanabi on hex.pm)
 
+## v.?.? (????-??-??)
+
+* Add RPL_WELCOME, RPL_YOURHOST, RPL_CREATED and RPL_MYINFO to the "greeting"
+  sequence (improving compatibility with 'recent' IRC clients)
+
 ## v0.1.1 (2017-11-28)
 
 * Use ETS to lookup users using non-key elements (nick, username, ...)
