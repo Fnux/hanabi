@@ -4,6 +4,7 @@ defmodule Hanabi.User do
   use Hanabi.IRC.Numeric
 
   @table :hanabi_users # ETS table name, see Hanabi.Registry
+  @available_modes ["r"]
   @moduledoc """
   Entry point to interact with users.
 
@@ -12,6 +13,7 @@ defmodule Hanabi.User do
   ```
   %Hanabi.User{
     channels: [],
+    modes: [],
     hostname: nil,
     is_pass_validated?: false,
     key: nil,
@@ -48,7 +50,8 @@ defmodule Hanabi.User do
     port: nil,
     pid: nil,
     data: nil,
-    channels: []
+    channels: [],
+    modes: []
 
   ####
   # Registry access
@@ -327,4 +330,94 @@ defmodule Hanabi.User do
   end
   def remove(nil, _), do: :err
   def remove(user_key, part_msg), do: remove(User.get(user_key), part_msg)
+
+  ###
+  # User modes
+
+  @doc """
+  List the available user modes :
+
+  * `"r"` : registered user mode
+  """
+  def available_modes, do: @available_modes
+
+  defp check_modes_validity([]), do: true
+  defp check_modes_validity([mode|tail]) do
+    if check_modes_validity(mode), do: check_modes_validity(tail), else: false
+  end
+  defp check_modes_validity(mode), do: Enum.member?(available_modes(), mode)
+
+  @doc """
+  Add a mode to an user.
+
+  * `user` is either the user's struct or identifier
+  * `mode` is the mode to be added
+
+  Return values:
+
+  * `{:ok, new_list_of_modes}`
+  * `{:error, "unknown user mode"}`
+
+  ## Examples :
+  ```
+  iex> user.modes
+  []
+  iex> Hanabi.User.add_mode(user, "r")
+  {:ok, ["r"]}
+  iex> Hanabi.User.add_mode(user, "z") # unknown mode z
+  {:error, "unknown user mode"}
+  ```
+  """
+  def add_mode(%User{}=user, mode) do
+    cond do
+      not Enum.member?(available_modes(), mode) -> {:error, "unknown user mode"}
+      Enum.member?(user.modes, mode) -> {:ok, user.modes}
+      true -> {:ok, update(user, modes: user.modes ++ [mode]).modes}
+    end
+  end
+  def add_mode(user_key, mode), do: add_mode User.get(user_key), mode
+
+  @doc """
+  Remove a mode from an user.
+
+  * `user` is either the user's struct or identifier
+  * `mode` is the mode to be removed
+
+  Returns `{:ok, new_list_of_modes}`.
+
+  ## Examples :
+  ```
+  iex> user.modes
+  ["r"]
+  iex> Hanabi.User.remove_mode(user, "r")
+  {:ok, []}
+  iex> Hanabi.User.remove_mode(user, "z") # unknown mode z
+  {:ok, []}
+  """
+  def remove_mode(%User{}=user, mode) do
+    if Enum.member?(user.modes, mode) do
+      {:ok, update(user, modes: List.delete(user.modes, mode)).modes}
+    else
+      {:ok, user.modes}
+    end
+  end
+  def remove_mode(user_key, mode), do: remove_mode User.get(user_key), mode
+
+  @doc """
+  Set the list of modes applied to the user.
+
+  * `user` is either the user's struct or identifier
+  * `modes` is a list of modes (ex: `["r", "i"]`)
+
+  Returns either `{:ok, news_list_of_modes}` or `{:error, "unknown modes"}`
+  (if `modes` contains items unknown to `available_modes/0`).
+  """
+  def set_modes(%User{}=user, modes) do
+    if check_modes_validity(modes) do
+      {:ok, update(user, modes: modes).modes}
+    else
+      {:error, "unknown modes"}
+    end
+  end
+  def set_modes(user_key, modes), do: set_modes User.get(user_key), modes
 end

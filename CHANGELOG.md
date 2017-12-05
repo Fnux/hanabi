@@ -2,6 +2,8 @@
 
 ## v.?.? (????-??-??)
 
+* Add support for user modes (via the `Hanabi.User` module and the MODE command)
+* Add support for the following user modes : "r"
 * Add RPL_WELCOME, RPL_YOURHOST, RPL_CREATED and RPL_MYINFO to the "greeting"
   sequence (improving compatibility with 'recent' IRC clients)
 

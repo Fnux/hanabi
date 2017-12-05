@@ -5,6 +5,7 @@ defmodule Hanabi.Channel do
 
   @hostname Application.get_env(:hanabi, :hostname)
   @table :hanabi_channels # ETS table, see Hanabi.Registry
+  @available_modes []
   @moduledoc """
   Entry point to interact with channels.
 
@@ -267,4 +268,12 @@ defmodule Hanabi.Channel do
     concatenated = if names, do: "#{names} #{name}", else: name
     get_names tail, concatenated
   end
+
+  ###
+  # Channel modes
+
+  @doc """
+  List the available channel modes.
+  """
+  def available_modes(), do: @available_modes
 end

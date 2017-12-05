@@ -8,11 +8,7 @@ defmodule Hanabi.IRC.Handler do
   @motd_file Application.get_env(:hanabi, :motd)
   @hostname Application.get_env(:hanabi, :hostname)
   @password Application.get_env(:hanabi, :password)
-
-  # User and channel modes are not supported yet
-  # See issues 9, 12, 13 and 14 on github
-  @available_user_modes []
-  @available_channel_modes []
+  @authorized_umode_change []
 
   def start_link() do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
@@ -45,7 +41,7 @@ defmodule Hanabi.IRC.Handler do
     case msg.command do
       "JOIN" -> join(user, msg)
       "LIST" -> list(user, msg)
-      "MODE" -> :not_implemented # @TODO
+      "MODE" -> mode(user, msg)
       "MOTD" -> send_motd(user)
       "NAMES" -> names(user, msg)
       "NICK" -> set_nick(user, msg.middle)
@@ -73,8 +69,8 @@ defmodule Hanabi.IRC.Handler do
 
     network_name = Application.get_env(:hanabi, :network_name)
     created_on = Application.get_env(:hanabi, :network_created_on)
-    available_user_modes = List.to_string(@available_user_modes)
-    available_channel_modes = List.to_string(@available_channel_modes)
+    available_user_modes = List.to_string(User.available_modes)
+    available_channel_modes = List.to_string(Channel.available_modes)
 
     # RPL_WELCOME
     User.send user, %Message{
@@ -199,6 +195,62 @@ defmodule Hanabi.IRC.Handler do
   end
 
   # MODE
+  def mode(%User{}=user, %Message{}=msg) do
+    arguments = String.split(msg.middle)
+
+    target = Enum.at(arguments, 0)
+    modechange = Enum.at(arguments, 1)
+
+    [_, change, mode] =
+      if !is_nil(modechange) && Regex.match?(~r/^(\+|\-)(\D)$/, modechange) do
+        Regex.run(~r/^(\+|\-)(\D)$/, modechange)
+      else
+        List.duplicate(nil, 3)
+      end
+
+    cond do
+      is_nil Enum.at(arguments, 0) ->
+        User.send user, %Message{
+          prefix: @hostname,
+          command: @err_needmoreparams,
+          middle: "MODE",
+          trailing: "Not enough parameters"
+        }
+      user.nick != target ->
+        User.send user, %Message{
+          prefix: @hostname,
+          command: @err_userdontmatch,
+          middle: user.nick,
+          trailing: "Cannot change mode for other users"
+        }
+      Enum.count(arguments) == 1 ->
+        User.send user, %Message{
+          prefix: @hostname,
+          command: @rpl_umodeis,
+          middle: "#{user.nick} #{List.to_string(user.modes)}"
+        }
+      not Enum.member?(User.available_modes, mode) ->
+        User.send user, %Message{
+          prefix: @hostname,
+          command: @err_umodeunknownflag,
+          middle: user.nick,
+          trailing: "Unknown MODE flag"
+        }
+      not Enum.member?(@authorized_umode_change, modechange) -> :noop #ignore
+      true ->
+        {:ok, _modes} = case change do
+          "+" -> User.add_mode(user, mode)
+          "-" -> User.remove_mode(user, mode)
+        end
+
+        User.send user, %Message{
+          prefix: user.nick,
+          command: "MODE",
+          middle: target,
+          trailing: modechange
+        }
+    end
+  end
 
   # MOTD
   def send_motd(%User{}=user) do

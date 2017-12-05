@@ -25,6 +25,8 @@ defmodule Hanabi.IRC.Numeric do
       @rpl_created "003"
       @rpl_myinfo "004"
 
+      @rpl_umodeis "221"
+
       @rpl_whoisuser "311"
       @rpl_endofwhois "318"
       @rpl_liststart "321"
@@ -46,6 +48,9 @@ defmodule Hanabi.IRC.Numeric do
       @err_notonchannel "442"
       @err_needmoreparams "461"
       @err_alreadyregistered "462"
+
+      @err_umodeunknownflag "501"
+      @err_userdontmatch "502"
     end
   end
 end
