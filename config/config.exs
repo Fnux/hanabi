@@ -28,12 +28,14 @@ use Mix.Config
 # here (which is why it is important to import them last).
 #
 #     import_config "#{Mix.env}.exs"
+#
+
 config :hanabi, port: 6667,
                 hostname: "irc.localhost",
-                motd: "/tmp/motd.txt",
+                motd: "/path/to/motd.txt",
                 network_name: "Hanabi Demo",
-                network_created_on: "2017-12-04 17:22"
-                #password: "tototo"
+                network_created_on: "on 2017-12-04 17:22"
+                # , password: "mypassword"
 
 config :logger, :console,
   format: "$time $metadata[$level] $levelpad$message\n",
